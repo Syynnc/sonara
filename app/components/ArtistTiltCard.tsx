@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef } from 'react';
 import { Music } from 'lucide-react';
@@ -39,7 +39,7 @@ export function ArtistTiltCard() {
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-3xl overflow-hidden shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full cursor-default"
+      className="bg-[#181818] border border-[#282828] rounded-3xl overflow-hidden shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full cursor-default"
       style={{ willChange: 'transform' }}
     >
       {/* Image banner */}
@@ -50,18 +50,18 @@ export function ArtistTiltCard() {
           className="w-full h-full object-cover"
           style={{ filter: 'brightness(0.55) saturate(0.7)' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1a1a1a]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#181818]" />
 
         {/* Float badge */}
         <div
-          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#141414]/70 backdrop-blur-md border border-[#d4af37]/20 rounded-full"
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#121212]/70 backdrop-blur-md border border-[#1DB954]/20 rounded-full"
           style={{ animation: 'float 3.5s ease-in-out infinite' }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full bg-[#d4af37]"
+            className="w-1.5 h-1.5 rounded-full bg-[#1DB954]"
             style={{ animation: 'pulse-dot 2s ease-in-out infinite' }}
           />
-          <span className="text-[10px] font-semibold tracking-widest text-[#d4af37] uppercase">
+          <span className="text-[10px] font-semibold tracking-widest text-[#1DB954] uppercase">
             Featured
           </span>
         </div>
@@ -71,15 +71,15 @@ export function ArtistTiltCard() {
       <div className="p-7 pt-4">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h3 className="text-xl font-bold text-[#f0e6c8] tracking-tight leading-tight">
+            <h3 className="text-xl font-bold text-[#FFFFFF] tracking-tight leading-tight">
               Nara Kessler
             </h3>
-            <p className="text-sm text-[#c8b87a]/55 mt-1 leading-snug max-w-[42ch]">
+            <p className="text-sm text-[#B3B3B3]/55 mt-1 leading-snug max-w-[42ch]">
               Lagos-born composer and producer blending West African polyrhythms with synthesized textures.
             </p>
           </div>
-          <button className="shrink-0 w-10 h-10 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/20 flex items-center justify-center hover:bg-[#d4af37]/20 transition-colors">
-            <Music size={15} className="text-[#d4af37]" strokeWidth={1.5} />
+          <button className="shrink-0 w-10 h-10 rounded-full bg-[#1DB954]/10 border border-[#1DB954]/20 flex items-center justify-center hover:bg-[#1DB954]/20 transition-colors">
+            <Music size={15} className="text-[#1DB954]" strokeWidth={1.5} />
           </button>
         </div>
 
@@ -88,7 +88,7 @@ export function ArtistTiltCard() {
           {GENRE_TAGS.map((tag) => (
             <span
               key={tag}
-              className="px-2.5 py-1 text-[10px] font-medium tracking-wide text-[#c8b87a]/60 bg-[#141414] border border-[#2a2a2a] rounded-full uppercase"
+              className="px-2.5 py-1 text-[10px] font-medium tracking-wide text-[#B3B3B3]/60 bg-[#121212] border border-[#282828] rounded-full uppercase"
             >
               {tag}
             </span>
@@ -96,13 +96,13 @@ export function ArtistTiltCard() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 border-t border-[#2a2a2a] pt-5">
+        <div className="grid grid-cols-3 gap-4 border-t border-[#282828] pt-5">
           {STATS.map((stat) => (
             <div key={stat.label}>
-              <p className="text-base font-bold font-mono text-[#f0e6c8]/85 tracking-tight">
+              <p className="text-base font-bold font-mono text-[#FFFFFF]/85 tracking-tight">
                 {stat.value}
               </p>
-              <p className="text-[10px] text-[#c8b87a]/40 mt-0.5 leading-tight">{stat.label}</p>
+              <p className="text-[10px] text-[#B3B3B3]/40 mt-0.5 leading-tight">{stat.label}</p>
             </div>
           ))}
         </div>

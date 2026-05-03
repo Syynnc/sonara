@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
@@ -11,19 +11,19 @@ export function NowPlayingCard() {
   const [isPlaying, setIsPlaying] = useState(true);
 
   return (
-    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-3xl p-7 flex flex-col gap-6 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full">
+    <div className="bg-[#181818] border border-[#282828] rounded-3xl p-7 flex flex-col gap-6 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-semibold tracking-[0.25em] text-[#d4af37]/55 uppercase mb-1">
+          <p className="text-[10px] font-semibold tracking-[0.25em] text-[#1DB954]/55 uppercase mb-1">
             Now Playing
           </p>
-          <h3 className="text-lg font-bold text-[#f0e6c8] tracking-tight leading-tight">
+          <h3 className="text-lg font-bold text-[#FFFFFF] tracking-tight leading-tight">
             North Tide
           </h3>
-          <p className="text-sm text-[#c8b87a]/60 mt-0.5">Folarin Osei — Quiet Signal</p>
+          <p className="text-sm text-[#B3B3B3]/60 mt-0.5">Folarin Osei — Quiet Signal</p>
         </div>
-        <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#2a2a2a] shrink-0">
+        <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#282828] shrink-0">
           <img
             src="https://picsum.photos/seed/NT8x2/48/48"
             alt=""
@@ -37,7 +37,7 @@ export function NowPlayingCard() {
         {BAR_HEIGHTS.map((maxH, i) => (
           <div
             key={i}
-            className="rounded-full bg-[#d4af37]"
+            className="rounded-full bg-[#1DB954]"
             style={{
               width: '3px',
               height: `${maxH}%`,
@@ -56,9 +56,9 @@ export function NowPlayingCard() {
 
       {/* Progress */}
       <div className="space-y-2">
-        <div className="h-0.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+        <div className="h-0.5 bg-[#282828] rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#d4af37] rounded-full"
+            className="h-full bg-[#1DB954] rounded-full"
             style={{
               animation: isPlaying
                 ? 'progress-fill 227s linear forwards'
@@ -67,7 +67,7 @@ export function NowPlayingCard() {
             }}
           />
         </div>
-        <div className="flex justify-between text-[10px] font-mono text-[#c8b87a]/40">
+        <div className="flex justify-between text-[10px] font-mono text-[#B3B3B3]/40">
           <span>1:23</span>
           <span>3:47</span>
         </div>
@@ -75,25 +75,25 @@ export function NowPlayingCard() {
 
       {/* Controls */}
       <div className="flex items-center justify-between">
-        <button className="p-2 text-[#c8b87a]/40 hover:text-[#c8b87a] transition-colors">
+        <button className="p-2 text-[#B3B3B3]/40 hover:text-[#B3B3B3] transition-colors">
           <Volume2 size={16} strokeWidth={1.5} />
         </button>
 
         <div className="flex items-center gap-4">
-          <button className="text-[#c8b87a]/60 hover:text-[#f0e6c8] transition-colors active:scale-95">
+          <button className="text-[#B3B3B3]/60 hover:text-[#FFFFFF] transition-colors active:scale-95">
             <SkipBack size={18} strokeWidth={1.5} />
           </button>
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="w-10 h-10 rounded-full bg-[#d4af37] flex items-center justify-center hover:bg-[#debb4a] transition-all duration-200 active:scale-95 shadow-[0_4px_16px_rgba(212,175,55,0.3)]"
+            className="w-10 h-10 rounded-full bg-[#1DB954] flex items-center justify-center hover:bg-[#1ed760] transition-all duration-200 active:scale-95 shadow-[0_4px_16px_rgba(29,185,84,0.3)]"
           >
             {isPlaying ? (
-              <Pause size={16} fill="#141414" className="text-[#141414]" />
+              <Pause size={16} fill="#121212" className="text-[#121212]" />
             ) : (
-              <Play size={16} fill="#141414" className="text-[#141414] translate-x-[1px]" />
+              <Play size={16} fill="#121212" className="text-[#121212] translate-x-[1px]" />
             )}
           </button>
-          <button className="text-[#c8b87a]/60 hover:text-[#f0e6c8] transition-colors active:scale-95">
+          <button className="text-[#B3B3B3]/60 hover:text-[#FFFFFF] transition-colors active:scale-95">
             <SkipForward size={18} strokeWidth={1.5} />
           </button>
         </div>

@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react';
+﻿import { TrendingUp } from 'lucide-react';
 
 const TRACKS = [
   { rank: 1, title: 'Midnight Frequency', artist: 'Nara Kessler', delta: '+3' },
@@ -11,17 +11,17 @@ const TRACKS = [
 
 export function TrendingList() {
   return (
-    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-3xl p-7 flex flex-col gap-5 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full">
+    <div className="bg-[#181818] border border-[#282828] rounded-3xl p-7 flex flex-col gap-5 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <TrendingUp size={14} strokeWidth={1.5} className="text-[#d4af37]" />
-        <p className="text-[10px] font-semibold tracking-[0.25em] text-[#d4af37]/55 uppercase">
+        <TrendingUp size={14} strokeWidth={1.5} className="text-[#1DB954]" />
+        <p className="text-[10px] font-semibold tracking-[0.25em] text-[#1DB954]/55 uppercase">
           This Week
         </p>
       </div>
 
       {/* List */}
-      <div className="flex flex-col divide-y divide-[#2a2a2a]">
+      <div className="flex flex-col divide-y divide-[#282828]">
         {TRACKS.map((track, i) => (
           <div
             key={track.rank}
@@ -30,21 +30,21 @@ export function TrendingList() {
               animation: `fade-up 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both`,
             }}
           >
-            <span className="text-xs font-mono text-[#c8b87a]/30 w-4 text-right shrink-0">
+            <span className="text-xs font-mono text-[#B3B3B3]/30 w-4 text-right shrink-0">
               {track.rank}
             </span>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#f0e6c8]/80 group-hover:text-[#f0e6c8] transition-colors truncate leading-tight">
+              <p className="text-sm font-medium text-[#FFFFFF]/80 group-hover:text-[#FFFFFF] transition-colors truncate leading-tight">
                 {track.title}
               </p>
-              <p className="text-xs text-[#c8b87a]/45 truncate mt-0.5">{track.artist}</p>
+              <p className="text-xs text-[#B3B3B3]/45 truncate mt-0.5">{track.artist}</p>
             </div>
 
             <span
               className={`text-[10px] font-mono shrink-0 ${
                 track.delta === '—'
-                  ? 'text-[#c8b87a]/30'
+                  ? 'text-[#B3B3B3]/30'
                   : 'text-emerald-500/70'
               }`}
             >
@@ -54,7 +54,7 @@ export function TrendingList() {
         ))}
       </div>
 
-      <button className="text-xs font-medium text-[#c8b87a]/40 hover:text-[#d4af37] transition-colors text-left mt-auto">
+      <button className="text-xs font-medium text-[#B3B3B3]/40 hover:text-[#1DB954] transition-colors text-left mt-auto">
         View full chart →
       </button>
     </div>
