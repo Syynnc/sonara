@@ -2,11 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-interface SoundwaveProps {
-  isDark: boolean;
-}
-
-export function Soundwave({ isDark }: SoundwaveProps) {
+export function Soundwave() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -55,6 +51,9 @@ export function Soundwave({ isDark }: SoundwaveProps) {
       { amplitude: 0.15, frequency: 0.005, speed: 1.8, opacity: 0.8, width: 4 },
     ];
 
+    // Gold color: RGB(212, 175, 55)
+    const baseColor = [212, 175, 55];
+
     let animationId: number;
 
     const animate = () => {
@@ -74,7 +73,6 @@ export function Soundwave({ isDark }: SoundwaveProps) {
       }
 
       const centerY = canvas.offsetHeight / 2;
-      const baseColor = isDark ? [168, 85, 247] : [59, 130, 246];
 
       if (mouseX > -500) {
         ctx.beginPath();
@@ -95,15 +93,15 @@ export function Soundwave({ isDark }: SoundwaveProps) {
 
         ctx.strokeStyle = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${wave.opacity})`;
         ctx.shadowBlur = 20;
-        ctx.shadowColor = isDark ? 'rgba(168, 85, 247, 0.5)' : 'rgba(59, 130, 246, 0.5)';
+        ctx.shadowColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, 0.5)`;
 
         for (let x = 0; x < canvas.offsetWidth; x++) {
           let y =
             centerY +
             Math.sin((x + offset * wave.speed) * wave.frequency) *
-              (canvas.offsetHeight * wave.amplitude) +
+            (canvas.offsetHeight * wave.amplitude) +
             Math.sin((x + offset * wave.speed * 0.5) * wave.frequency * 2) *
-              (canvas.offsetHeight * wave.amplitude * 0.3);
+            (canvas.offsetHeight * wave.amplitude * 0.3);
 
           if (mouseX > -500) {
             const dx = x - mouseX;
@@ -139,7 +137,7 @@ export function Soundwave({ isDark }: SoundwaveProps) {
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       cancelAnimationFrame(animationId);
     };
-  }, [isDark]);
+  }, []);
 
-  return <canvas ref={canvasRef} className="w-full h-full transition-opacity duration-700" />;
+  return <canvas ref={canvasRef} className="w-full h-full" />;
 }
