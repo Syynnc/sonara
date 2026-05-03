@@ -1,4 +1,4 @@
-import { Headphones } from 'lucide-react';
+﻿import { Headphones } from 'lucide-react';
 
 const LINKS = {
   Discover: ['Trending', 'New Releases', 'Playlists', 'Artists', 'Genres'],
@@ -40,21 +40,21 @@ const SOCIAL = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#2a2a2a] bg-[#141414]">
+    <footer className="border-t border-[#282828] bg-[#121212]">
       <div className="max-w-7xl mx-auto px-6 py-16">
         {/* Top row: brand + links */}
         <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr_1fr_1fr] gap-12 mb-14">
           {/* Brand column */}
           <div>
             <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-8 h-8 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/25 flex items-center justify-center">
-                <Headphones size={15} className="text-[#d4af37]" strokeWidth={1.5} />
+              <div className="w-8 h-8 rounded-lg bg-[#1DB954]/10 border border-[#1DB954]/25 flex items-center justify-center">
+                <Headphones size={15} className="text-[#1DB954]" strokeWidth={1.5} />
               </div>
-              <span className="font-bold tracking-[0.2em] text-sm text-[#f0e6c8] uppercase">
+              <span className="font-bold tracking-[0.2em] text-sm text-[#FFFFFF] uppercase">
                 Sonara
               </span>
             </div>
-            <p className="text-sm text-[#c8b87a]/55 leading-relaxed max-w-[30ch]">
+            <p className="text-sm text-[#B3B3B3]/55 leading-relaxed max-w-[30ch]">
               Mapping the acoustic space between what you know and what you&apos;ll love.
             </p>
 
@@ -65,7 +65,7 @@ export function Footer() {
                   key={s.label}
                   href={s.href}
                   aria-label={s.label}
-                  className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-[#c8b87a]/40 hover:text-[#d4af37] hover:border-[#d4af37]/30 transition-all duration-200"
+                  className="w-8 h-8 rounded-lg bg-[#181818] border border-[#282828] flex items-center justify-center text-[#B3B3B3]/40 hover:text-[#1DB954] hover:border-[#1DB954]/30 transition-all duration-200"
                 >
                   {s.icon}
                 </a>
@@ -76,7 +76,7 @@ export function Footer() {
           {/* Link columns */}
           {Object.entries(LINKS).map(([heading, items]) => (
             <div key={heading}>
-              <p className="text-[10px] font-semibold tracking-[0.25em] text-[#d4af37]/50 uppercase mb-5">
+              <p className="text-[10px] font-semibold tracking-[0.25em] text-[#1DB954]/50 uppercase mb-5">
                 {heading}
               </p>
               <ul className="flex flex-col gap-3">
@@ -84,7 +84,7 @@ export function Footer() {
                   <li key={item}>
                     <a
                       href="#"
-                      className="text-sm text-[#c8b87a]/55 hover:text-[#f0e6c8] transition-colors duration-200"
+                      className="text-sm text-[#B3B3B3]/55 hover:text-[#FFFFFF] transition-colors duration-200"
                     >
                       {item}
                     </a>
@@ -96,8 +96,8 @@ export function Footer() {
         </div>
 
         {/* Bottom row */}
-        <div className="border-t border-[#2a2a2a] pt-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <p className="text-xs text-[#c8b87a]/30">
+        <div className="border-t border-[#282828] pt-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <p className="text-xs text-[#B3B3B3]/30">
             &copy; {new Date().getFullYear()} Sonara. All rights reserved.
           </p>
 
@@ -106,7 +106,7 @@ export function Footer() {
               className="w-1.5 h-1.5 rounded-full bg-emerald-500/60"
               style={{ animation: 'pulse-dot 2.5s ease-in-out infinite' }}
             />
-            <p className="text-xs text-[#c8b87a]/30">
+            <p className="text-xs text-[#B3B3B3]/30">
               All systems operational
             </p>
           </div>

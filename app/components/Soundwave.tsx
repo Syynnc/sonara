@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 
@@ -51,8 +51,7 @@ export function Soundwave() {
       { amplitude: 0.15, frequency: 0.005, speed: 1.8, opacity: 0.8, width: 4 },
     ];
 
-    // Gold color: RGB(212, 175, 55)
-    const baseColor = [212, 175, 55];
+    const baseColor = [29, 185, 84];
 
     let animationId: number;
 

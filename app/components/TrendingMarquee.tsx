@@ -1,4 +1,4 @@
-const ROW1 = [
+﻿const ROW1 = [
   { title: 'Gemini Rights', artist: 'Steve Lacy' },
   { title: 'Motomami', artist: 'Rosalía' },
   { title: 'The Melodic Blue', artist: 'Baby Keem' },
@@ -27,22 +27,22 @@ const DOUBLED_ROW2 = [...ROW2, ...ROW2];
 function TrackPill({ title, artist }: { title: string; artist: string }) {
   return (
     <div className="flex items-center gap-3 shrink-0">
-      <div className="w-1 h-1 rounded-full bg-[#d4af37]/40" />
-      <span className="text-sm font-medium text-[#f0e6c8]/70">{title}</span>
-      <span className="text-xs text-[#c8b87a]/40">— {artist}</span>
+      <div className="w-1 h-1 rounded-full bg-[#1DB954]/40" />
+      <span className="text-sm font-medium text-[#FFFFFF]/70">{title}</span>
+      <span className="text-xs text-[#B3B3B3]/40">— {artist}</span>
     </div>
   );
 }
 
 export function TrendingMarquee() {
   return (
-    <section className="py-8 overflow-hidden border-y border-[#2a2a2a]">
+    <section className="py-8 overflow-hidden border-y border-[#282828]">
       {/* Label */}
       <div className="flex items-center gap-4 mb-5 px-6 max-w-7xl mx-auto">
-        <span className="text-[10px] font-bold tracking-[0.3em] text-[#d4af37]/50 uppercase whitespace-nowrap">
+        <span className="text-[10px] font-bold tracking-[0.3em] text-[#1DB954]/50 uppercase whitespace-nowrap">
           Trending Now
         </span>
-        <div className="flex-1 h-px bg-[#2a2a2a]" />
+        <div className="flex-1 h-px bg-[#282828]" />
       </div>
 
       {/* Row 1 — forward */}

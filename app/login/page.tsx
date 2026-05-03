@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { createClient } from '@/lib/supabase/client';
 import { Headphones } from 'lucide-react';
@@ -35,24 +35,24 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#141414] flex items-center justify-center px-4">
+    <div className="min-h-[100dvh] bg-[#121212] flex items-center justify-center px-4">
       {/* Background glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(212,175,55,0.06) 0%, transparent 70%)',
+            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(29,185,84,0.06) 0%, transparent 70%)',
         }}
       />
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#d4af37]/10 border border-[#d4af37]/20 flex items-center justify-center mb-5">
-            <Headphones size={24} className="text-[#d4af37]" strokeWidth={1.5} />
+          <div className="w-14 h-14 rounded-2xl bg-[#1DB954]/10 border border-[#1DB954]/20 flex items-center justify-center mb-5">
+            <Headphones size={24} className="text-[#1DB954]" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#f0e6c8]">Welcome to Sonara</h1>
-          <p className="text-sm text-[#c8b87a]/55 mt-2 text-center max-w-[28ch]">
+          <h1 className="text-2xl font-bold tracking-tight text-[#FFFFFF]">Welcome to Sonara</h1>
+          <p className="text-sm text-[#B3B3B3]/55 mt-2 text-center max-w-[28ch]">
             Sign in with Spotify to discover your sound
           </p>
         </div>
@@ -76,7 +76,7 @@ function LoginContent() {
           Continue with Spotify
         </button>
 
-        <p className="text-center text-xs text-[#c8b87a]/30 mt-6 leading-relaxed">
+        <p className="text-center text-xs text-[#B3B3B3]/30 mt-6 leading-relaxed">
           By continuing you agree to our Terms and Privacy Policy.
           <br />
           We only request read access to your listening data.
