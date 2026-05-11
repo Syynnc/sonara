@@ -7,8 +7,8 @@ function formatFollowers(n: number) {
 }
 
 export function SearchArtistCard({ artist }: { artist: SpotifyArtist }) {
-  const image = artist.images[0]?.url;
-  const primaryGenre = artist.genres[0];
+  const image = artist.images?.[0]?.url;
+  const primaryGenre = artist.genres?.[0];
 
   return (
     <a
@@ -32,7 +32,7 @@ export function SearchArtistCard({ artist }: { artist: SpotifyArtist }) {
           {artist.name}
         </p>
         <p className="text-xs text-[#B3B3B3]/40 mt-0.5 tabular-nums">
-          {formatFollowers(artist.followers.total)}
+          {artist.followers?.total != null ? formatFollowers(artist.followers.total) : ''}
         </p>
       </div>
 
