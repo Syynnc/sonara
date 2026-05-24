@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const token = await getClientCredentialsToken();
-    const results = await searchSpotify(q.trim(), token, types);
+    const results = await searchSpotify(q.trim(), token, types, 10);
     return NextResponse.json(results);
   } catch (err) {
     console.error('Spotify search error:', err);

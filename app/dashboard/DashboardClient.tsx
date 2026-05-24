@@ -1,7 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SpotifyWebPlayer } from '@/app/components/SpotifyWebPlayer';
+import type { PlayerControls, NowPlayingInfo } from '@/app/components/SpotifyWebPlayer';
+import { TasteDNACard } from '@/app/components/TasteDNACard';
+import type { AudioFeatureSet, GenreEntry } from '@/app/components/TasteDNACard';
+import { ShortcutsModal } from '@/app/components/ShortcutsModal';
 import { formatDuration } from '@/app/components/TrackCard';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import type {
@@ -135,7 +139,7 @@ const NAV: NavItem[] = [
   { id: 'stats',     icon: IcoChart, label: 'Stats', disabled: true },
 ];
 
-// ── Sidebar nav button (double-bezel when active) ─────────────────────────────
+// ── Sidebar nav button (double-bezel when active, labelled) ──────────────────
 function NavBtn({
   item,
   active,
@@ -153,28 +157,36 @@ function NavBtn({
       onClick={onClick}
       title={item.label}
       className={`
-        w-full flex items-center justify-center
+        w-full flex flex-col items-center gap-1.5 py-1
         transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
         ${item.disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
       {active ? (
-        /* Active — double-bezel */
-        <div className="p-1.5 bg-white/[0.03] border border-white/[0.05] rounded-2xl shadow-[0_0_16px_rgba(255,85,0,0.12)]">
-          <div className="w-8 h-8 rounded-[calc(1rem-0.375rem)] bg-[#FF5500]/12 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] flex items-center justify-center text-[#FF5500]">
+        /* Active — double-bezel machined button */
+        <div className="p-[1.5px] bg-white/[0.04] border border-white/[0.07] rounded-2xl shadow-[0_0_20px_rgba(255,85,0,0.14)]">
+          <div className="w-9 h-9 rounded-[calc(1rem-1.5px)] bg-[#FF5500]/[0.12] shadow-[inset_0_1px_1px_rgba(255,255,255,0.09)] flex items-center justify-center text-[#FF5500]">
             <Icon />
           </div>
         </div>
       ) : (
-        /* Inactive */
-        <div className={`
-          w-10 h-10 rounded-2xl flex items-center justify-center
-          text-white/25 hover:text-white/55 hover:bg-white/[0.04]
+        /* Inactive — ghost */
+        <div className="
+          w-9 h-9 rounded-2xl flex items-center justify-center
+          text-white/25 hover:text-white/60 hover:bg-white/[0.04]
           transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
-        `}>
+        ">
           <Icon />
         </div>
       )}
+      {/* Label */}
+      <span className={`
+        text-[9px] font-medium tracking-wide
+        transition-colors duration-300
+        ${active ? 'text-[#FF5500]/70' : 'text-white/20'}
+      `}>
+        {item.label}
+      </span>
     </button>
   );
 }
@@ -246,25 +258,58 @@ function TrackRow({
   );
 }
 
-// ── Artist chip ───────────────────────────────────────────────────────────────
-function ArtistChip({ artist, onPlay }: { artist: SpotifyArtist; onPlay?: (name: string) => void }) {
-  const img = artist.images?.[2]?.url ?? artist.images?.[0]?.url;
+// ── Artist card (grid layout) ──────────────────────────────────────────────
+function ArtistCard({
+  artist, rank, onPlay,
+}: {
+  artist: SpotifyArtist;
+  rank: number;
+  onPlay?: (name: string) => void;
+}) {
+  const img = artist.images?.[1]?.url ?? artist.images?.[0]?.url;
+  const followers = artist.followers?.total;
+  const fmtFollowers = followers != null
+    ? followers >= 1_000_000
+      ? `${(followers / 1_000_000).toFixed(1)}M`
+      : followers >= 1_000
+        ? `${(followers / 1_000).toFixed(0)}K`
+        : String(followers)
+    : null;
+
   return (
     <button
       type="button"
       onClick={() => onPlay?.(artist.name)}
-      className="flex flex-col items-center gap-2.5 group"
+      className="group relative text-left"
     >
-      {/* Avatar — double-bezel ring */}
-      <div className="p-[1.5px] bg-white/[0.04] border border-white/[0.06] rounded-full group-hover:border-[#FF5500]/30 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:shadow-[0_0_16px_rgba(255,85,0,0.12)]">
-        <div className="w-14 h-14 rounded-full overflow-hidden bg-[#111] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
-          {img
-            ? <img src={img} alt={artist.name} className="w-full h-full object-cover" loading="lazy" />
-            : <div className="w-full h-full flex items-center justify-center text-white/25 text-lg font-bold">{artist.name[0]}</div>
-          }
+      {/* Outer double-bezel shell */}
+      <div className="p-[1.5px] bg-white/[0.025] border border-white/[0.05] rounded-[1.25rem] group-hover:border-[#FF5500]/20 group-hover:shadow-[0_0_20px_rgba(255,85,0,0.08)] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+        <div className="bg-[#0B0B0B] rounded-[calc(1.25rem-1.5px)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] overflow-hidden">
+          {/* Image */}
+          <div className="relative aspect-square w-full overflow-hidden bg-[#111]">
+            {img
+              ? <img src={img} alt={artist.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]" loading="lazy" />
+              : <div className="w-full h-full flex items-center justify-center text-white/10 text-3xl font-bold">{artist.name[0]}</div>
+            }
+            {/* Rank badge */}
+            <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-full border border-white/[0.08]">
+              <span className="text-[9px] font-bold text-white/50 tabular-nums">#{rank}</span>
+            </div>
+            {/* Bottom gradient */}
+            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0B0B0B] to-transparent" />
+          </div>
+          {/* Info */}
+          <div className="px-2 pb-2 pt-1">
+            <p className="text-[11px] font-semibold text-white/80 truncate group-hover:text-white transition-colors duration-300">{artist.name}</p>
+            {fmtFollowers && (
+              <p className="text-[9px] text-white/25 mt-0.5">{fmtFollowers} followers</p>
+            )}
+            {artist.genres?.[0] && (
+              <p className="text-[9px] text-[#FF5500]/40 mt-1 capitalize truncate">{artist.genres[0]}</p>
+            )}
+          </div>
         </div>
       </div>
-      <p className="text-[10px] text-white/35 group-hover:text-white/70 transition-colors duration-300 text-center w-16 truncate">{artist.name}</p>
     </button>
   );
 }
@@ -330,12 +375,74 @@ function SearchInput({
   );
 }
 
+// ── Ambient Glow — uses CSS custom property to avoid inline style={} ──────────
+function AmbientGlow({ rgb }: { rgb: string | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (rgb) {
+      el.style.setProperty('--ambient-rgb', rgb);
+      el.style.setProperty('display', '');
+    } else {
+      el.style.setProperty('display', 'none');
+    }
+  }, [rgb]);
+  return (
+    <div
+      ref={ref}
+      className="ambient-glow fixed inset-0 z-0 pointer-events-none transition-all duration-[2000ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+      aria-hidden
+    />
+  );
+}
+
+// ── Playlist Health Score ─────────────────────────────────────────────────────
+interface RawAudioFeature {
+  energy: number; danceability: number; valence: number;
+  acousticness: number; instrumentalness: number; speechiness: number;
+}
+
+function computePlaylistHealth(features: RawAudioFeature[]) {
+  if (!features.length) return null;
+  const avg = (k: keyof RawAudioFeature) => features.reduce((s, f) => s + (f[k] ?? 0), 0) / features.length;
+  const energy = avg('energy'), valence = avg('valence'), dance = avg('danceability');
+  const instru = avg('instrumentalness'), acoustic = avg('acousticness');
+
+  if (energy > 0.75)                          return { label: 'Peak Energy',    emoji: '🔥', description: 'Intense, workout-ready' };
+  if (valence > 0.65 && dance > 0.62)         return { label: 'Feel Good',      emoji: '😊', description: 'Upbeat and danceable'   };
+  if (instru > 0.4)                           return { label: 'Focus Mode',     emoji: '📚', description: 'Great for deep work'    };
+  if (acoustic > 0.55)                        return { label: 'Acoustic Soul',  emoji: '🎸', description: 'Warm organic sounds'    };
+  if (energy < 0.42)                          return { label: 'Chill Zone',     emoji: '😌', description: 'Low energy, relaxing'   };
+  if (dance > 0.74)                           return { label: 'Hype Beast',     emoji: '⚡', description: 'Maximum danceability'   };
+  return                                             { label: 'Mixed Vibes',    emoji: '🌀', description: 'Balanced mood mix'      };
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export function DashboardClient({
   firstName, topTracks, topArtists, accessToken, spotifyError,
 }: DashboardClientProps) {
   const [tab, setTab]               = useState<Tab>('overview');
   const [playingUri, setPlayingUri] = useState<string | null>(null);
+  const [rightOpen, setRightOpen]   = useState(true);
+  const [showAllTracks, setShowAllTracks]   = useState(false);
+  const [showAllArtists, setShowAllArtists] = useState(false);
+
+  // ── Ambient glow + player controls ────────────────────────────────────────
+  const [ambientColor, setAmbientColor]   = useState<string | null>(null);
+  const [nowPlaying, setNowPlaying]       = useState<NowPlayingInfo | null>(null);
+  const playerControlsRef = useRef<PlayerControls | null>(null);
+
+  // ── Shortcuts modal ────────────────────────────────────────────────────────
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // ── Taste DNA (overview) ───────────────────────────────────────────────────
+  const [dnaFeatures, setDnaFeatures] = useState<AudioFeatureSet | null>(null);
+  const [dnaLoading, setDnaLoading]   = useState(false);
+
+  // ── Playlist health ────────────────────────────────────────────────────────
+  const [playlistHealth, setPlaylistHealth] = useState<ReturnType<typeof computePlaylistHealth>>(null);
+  const [healthLoading, setHealthLoading]   = useState(false);
 
   // ── Search state ───────────────────────────────────────────────────────────
   const [query, setQuery]             = useState('');
@@ -396,7 +503,7 @@ export function DashboardClient({
   useEffect(() => { fetchPlaylists(); }, [fetchPlaylists]);
 
   useEffect(() => {
-    if (activeId) { setExportUrl(null); setExportError(null); fetchTracks(activeId); }
+    if (activeId) { setExportUrl(null); setExportError(null); setPlaylistHealth(null); fetchTracks(activeId); }
   }, [activeId, fetchTracks]);
 
   useEffect(() => {
@@ -454,14 +561,107 @@ export function DashboardClient({
     if (!r.ok) { setTracks(snapshot); setRemoveError('Could not remove track. Please try again.'); }
   };
 
+  const deletePlaylist = async (id: string) => {
+    const r = await fetch(`/api/spotify/playlists/${id}`, { method: 'DELETE' });
+    if (r.ok || r.status === 204) {
+      setPlaylists((prev) => prev.filter((p) => p.id !== id));
+      if (activeId === id) { setActiveId(null); setTracks([]); }
+    }
+  };
+
   const exportToSpotify = async () => {
     if (!activeId) return;
     setExporting(true); setExportError(null);
     const r = await fetch(`/api/spotify/playlists/${activeId}/export`, { method: 'POST' });
     const d = await r.json();
-    if (r.ok) setExportUrl(d.spotify_url); else setExportError(d.error ?? 'Export failed.');
+    if (r.ok) {
+      setExportUrl(d.spotify_url);
+    } else {
+      // 403 = missing playlist scopes → guide user to re-auth
+      setExportError(r.status === 403 ? '__reconnect__' : (d.error ?? 'Export failed.'));
+    }
     setExporting(false);
   };
+
+  // ── Taste DNA effect ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!topTracks.length) return;
+    setDnaLoading(true);
+    const ids = topTracks.map((t) => t.id).slice(0, 20).join(',');
+    fetch(`/api/spotify/audio-features?ids=${ids}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const valid = (d.audio_features ?? []).filter(Boolean) as AudioFeatureSet[];
+        if (!valid.length) return;
+        const avgF = (k: keyof AudioFeatureSet) =>
+          valid.reduce((s, f) => s + f[k], 0) / valid.length;
+        setDnaFeatures({
+          energy:           avgF('energy'),
+          danceability:     avgF('danceability'),
+          valence:          avgF('valence'),
+          acousticness:     avgF('acousticness'),
+          instrumentalness: avgF('instrumentalness'),
+          speechiness:      avgF('speechiness'),
+        });
+      })
+      .catch(() => {})
+      .finally(() => setDnaLoading(false));
+  }, [topTracks]);
+
+  // ── Genre data from topArtists ────────────────────────────────────────────
+  const genreData = useMemo<GenreEntry[]>(() => {
+    const counts: Record<string, number> = {};
+    topArtists.forEach((a) => a.genres?.forEach((g) => { counts[g] = (counts[g] ?? 0) + 1; }));
+    const total = Object.values(counts).reduce((s, c) => s + c, 0);
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 6)
+      .map(([name, count]) => ({ name, count, pct: count / total }));
+  }, [topArtists]);
+
+  // ── Playlist health effect ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!tracks.length) { setPlaylistHealth(null); return; }
+    const ids = tracks.map((t) => t.spotifyTrackId).filter(Boolean).slice(0, 50).join(',');
+    if (!ids) return;
+    setHealthLoading(true);
+    fetch(`/api/spotify/audio-features?ids=${ids}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const valid = (d.audio_features ?? []).filter(Boolean) as RawAudioFeature[];
+        setPlaylistHealth(computePlaylistHealth(valid));
+      })
+      .catch(() => {})
+      .finally(() => setHealthLoading(false));
+  }, [tracks]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      const inInput = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement).isContentEditable;
+
+      if (e.key === 'Escape') { setShowShortcuts(false); return; }
+      if (e.key === '?') { e.preventDefault(); setShowShortcuts((v) => !v); return; }
+
+      if (inInput) return;
+
+      if (e.key === ' ') { e.preventDefault(); playerControlsRef.current?.toggle(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); playerControlsRef.current?.next(); return; }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); playerControlsRef.current?.prev(); return; }
+      if (e.key === 'k' || e.key === 'K') { e.preventDefault(); searchInputRef.current?.focus(); setTab('search'); return; }
+      if (e.key === 'p' || e.key === 'P') { e.preventDefault(); setRightOpen((o) => !o); return; }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // ── playTrack helper ──────────────────────────────────────────────────────
+  const playTrack = useCallback((uri: string | null | undefined) => {
+    if (!uri) return;
+    setPlayingUri(uri);
+    setRightOpen(true);
+  }, []);
 
   const activePlaylist = playlists.find((p) => p.id === activeId);
   const searchTracks   = results?.tracks?.items  ?? [];
@@ -471,9 +671,11 @@ export function DashboardClient({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-[#070707] overflow-hidden">
+      {/* Ambient glow — driven by playing track colour */}
+      <AmbientGlow rgb={ambientColor} />
 
       {/* ── Left Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className="w-[60px] flex flex-col items-center py-4 gap-1.5 border-r border-white/[0.05] bg-[#090909] shrink-0">
+      <aside className="w-[76px] flex flex-col items-center py-4 gap-1 border-r border-white/[0.05] bg-[#090909] shrink-0">
 
         {/* Logo — double-bezel */}
         <a href="/" className="mb-4 group" title="Home">
@@ -500,18 +702,28 @@ export function DashboardClient({
         <a
           href="/api/auth/signout"
           title="Sign out"
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/20 hover:text-red-400/70 hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          className="flex flex-col items-center gap-1.5 py-1 w-full group"
         >
-          <IcoLogOut />
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white/20 group-hover:text-red-400/70 group-hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+            <IcoLogOut />
+          </div>
+          <span className="text-[9px] font-medium tracking-wide text-white/15 group-hover:text-red-400/50 transition-colors duration-300">
+            Sign out
+          </span>
         </a>
 
         {/* Settings */}
         <button
           type="button"
           title="Settings"
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/20 hover:text-white/50 hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          className="flex flex-col items-center gap-1.5 py-1 w-full group"
         >
-          <IcoSettings />
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white/20 group-hover:text-white/50 group-hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+            <IcoSettings />
+          </div>
+          <span className="text-[9px] font-medium tracking-wide text-white/15 group-hover:text-white/35 transition-colors duration-300">
+            Settings
+          </span>
         </button>
       </aside>
 
@@ -553,6 +765,16 @@ export function DashboardClient({
             ))}
           </div>
 
+          {/* Keyboard shortcuts trigger */}
+          <button
+            type="button"
+            title="Keyboard shortcuts"
+            onClick={() => setShowShortcuts(true)}
+            className="w-7 h-7 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/25 hover:text-white/55 hover:bg-white/[0.05] transition-all duration-300 text-[11px] font-mono"
+          >
+            ?
+          </button>
+
           {/* Avatar — double-bezel */}
           <div className="p-[1.5px] bg-white/[0.04] border border-white/[0.06] rounded-full shrink-0">
             <div className="w-7 h-7 rounded-full bg-[#0C0C0C] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] flex items-center justify-center text-[10px] font-bold text-white/50">
@@ -562,11 +784,17 @@ export function DashboardClient({
         </div>
 
         {/* ── Scrollable content ────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto">
+        <div
+          className={`
+            flex-1 overflow-y-auto
+            transition-[padding] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+            ${rightOpen ? 'pr-[296px]' : 'pr-0'}
+          `}
+        >
 
           {/* ── Overview ──────────────────────────────────────────────────── */}
           {tab === 'overview' && (
-            <div className="px-6 py-10 space-y-10 max-w-4xl">
+            <div className="px-6 py-10 space-y-10 max-w-5xl">
 
               {/* Welcome */}
               <div>
@@ -600,15 +828,77 @@ export function DashboardClient({
               {/* Top tracks */}
               {topTracks.length > 0 && (
                 <section>
-                  <SectionHeader label="Your Top Tracks" meta="Last 4 weeks" />
-                  {/* Card shell */}
+                  {/* Header row with See all */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full shrink-0">
+                      <div className="px-2.5 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                        <span className="text-[9px] font-bold tracking-[0.28em] text-[#FF5500]/60 uppercase whitespace-nowrap">Top Tracks</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                    <span className="text-[10px] text-white/20 shrink-0">Last 4 weeks</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllTracks((v) => !v)}
+                      className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[#FF5500]/60 hover:text-[#FF5500] transition-colors duration-300"
+                    >
+                      {showAllTracks ? 'Show less' : 'See all'}
+                      <svg
+                        width="10" height="10" viewBox="0 0 10 10" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className={`transition-transform duration-300 ${showAllTracks ? '-rotate-90' : 'rotate-90'}`}
+                      >
+                        <path d="M3 2l4 3-4 3" />
+                      </svg>
+                    </button>
+                  </div>
+
                   <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
                     <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
-                      <div className="grid grid-cols-1 md:grid-cols-2">
-                        {topTracks.map((track, i) => (
-                          <TrackRow key={track.id} track={track} rank={i + 1} onPlay={setPlayingUri} />
-                        ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5">
+                        {(showAllTracks ? topTracks : topTracks.slice(0, 4)).map((track, i) => {
+                          const image   = track.album.images[1]?.url ?? track.album.images[0]?.url;
+                          const artists = track.artists.map((a) => a.name).join(', ');
+                          return (
+                            <div
+                              key={track.id}
+                              onClick={() => playTrack(track.uri)}
+                              className="flex items-center gap-3 px-3 py-3 rounded-2xl cursor-pointer group hover:bg-white/[0.04] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                            >
+                              <span className="text-[11px] font-mono text-white/20 w-4 text-center shrink-0 tabular-nums select-none">{i + 1}</span>
+                              <div className="p-[1.5px] bg-white/[0.04] border border-white/[0.06] rounded-xl shrink-0">
+                                <div className="w-11 h-11 rounded-[calc(0.75rem-1.5px)] overflow-hidden bg-[#111] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] relative">
+                                  {image && <img src={image} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                                  <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
+                                    <div className="w-6 h-6 rounded-full bg-[#FF5500] flex items-center justify-center shadow-[0_0_12px_rgba(255,85,0,0.5)]">
+                                      <svg viewBox="0 0 8 8" className="w-2 h-2 fill-white translate-x-[0.5px]"><polygon points="1,0 7,4 1,8" /></svg>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-white/75 truncate leading-tight group-hover:text-white transition-colors duration-300">{track.name}</p>
+                                <p className="text-xs text-white/28 truncate mt-0.5">{artists}</p>
+                              </div>
+                              <span className="text-[10px] font-mono text-white/18 shrink-0 tabular-nums">{formatDuration(track.duration_ms)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
+
+                      {/* Collapsed footer hint */}
+                      {!showAllTracks && topTracks.length > 4 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllTracks(true)}
+                          className="w-full mt-1 py-2.5 text-[11px] font-medium text-white/20 hover:text-[#FF5500]/70 border-t border-white/[0.04] transition-colors duration-300 flex items-center justify-center gap-1.5"
+                        >
+                          +{topTracks.length - 4} more tracks
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 2v6M2 5l3 3 3-3" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -617,20 +907,74 @@ export function DashboardClient({
               {/* Top artists */}
               {topArtists.length > 0 && (
                 <section>
-                  <SectionHeader label="Your Top Artists" meta="Last 6 months" />
-                  <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
-                    <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-6">
-                      <div className="flex flex-wrap gap-5">
-                        {topArtists.map((artist) => (
-                          <ArtistChip
-                            key={artist.id}
-                            artist={artist}
-                            onPlay={(name) => { setQuery(name); setTab('search'); }}
-                          />
-                        ))}
+                  {/* Header row with See all */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full shrink-0">
+                      <div className="px-2.5 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                        <span className="text-[9px] font-bold tracking-[0.28em] text-[#FF5500]/60 uppercase whitespace-nowrap">Top Artists</span>
                       </div>
                     </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                    <span className="text-[10px] text-white/20 shrink-0">Last 6 months</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllArtists((v) => !v)}
+                      className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[#FF5500]/60 hover:text-[#FF5500] transition-colors duration-300"
+                    >
+                      {showAllArtists ? 'Show less' : 'See all'}
+                      <svg
+                        width="10" height="10" viewBox="0 0 10 10" fill="none"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        className={`transition-transform duration-300 ${showAllArtists ? '-rotate-90' : 'rotate-90'}`}
+                      >
+                        <path d="M3 2l4 3-4 3" />
+                      </svg>
+                    </button>
                   </div>
+
+                  {/* Bento preview — top 3 in equal-height row */}
+                  {!showAllArtists && (
+                    <div className="grid grid-cols-3 gap-3">
+                      {topArtists.slice(0, 3).map((artist, i) => (
+                        <ArtistCard
+                          key={artist.id}
+                          artist={artist}
+                          rank={i + 1}
+                          onPlay={(name) => { setQuery(name); setTab('search'); }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Expanded grid — all artists */}
+                  {showAllArtists && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {topArtists.map((artist, i) => (
+                        <ArtistCard
+                          key={artist.id}
+                          artist={artist}
+                          rank={i + 1}
+                          onPlay={(name) => { setQuery(name); setTab('search'); }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* Taste DNA */}
+              {(dnaFeatures || dnaLoading) && (
+                <section>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full shrink-0">
+                      <div className="px-2.5 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                        <span className="text-[9px] font-bold tracking-[0.28em] text-[#FF5500]/60 uppercase whitespace-nowrap">Taste DNA</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                    <span className="text-[10px] text-white/20 shrink-0">Your sonic fingerprint</span>
+                  </div>
+                  <TasteDNACard features={dnaFeatures} genres={genreData} loading={dnaLoading} />
                 </section>
               )}
 
@@ -651,7 +995,7 @@ export function DashboardClient({
 
           {/* ── Search ────────────────────────────────────────────────────── */}
           {tab === 'search' && (
-            <div className="px-6 py-10 max-w-4xl">
+            <div className="px-6 py-10 max-w-5xl">
               <div className="mb-6">
                 <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full w-fit mb-3">
                   <div className="px-3 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
@@ -707,7 +1051,7 @@ export function DashboardClient({
                         <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
                           <div className="grid grid-cols-1 md:grid-cols-2">
                             {searchTracks.map((t) => (
-                              <TrackRow key={t.id} track={t} onPlay={setPlayingUri} />
+                              <TrackRow key={t.id} track={t} onPlay={playTrack} />
                             ))}
                           </div>
                         </div>
@@ -719,9 +1063,9 @@ export function DashboardClient({
                       <SectionHeader label="Artists" />
                       <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
                         <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-5">
-                          <div className="flex flex-wrap gap-5">
-                            {searchArtists.map((a) => (
-                              <ArtistChip key={a.id} artist={a} onPlay={(name) => setQuery(name)} />
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 p-2">
+                            {searchArtists.map((a, i) => (
+                              <ArtistCard key={a.id} artist={a} rank={i + 1} onPlay={(name) => setQuery(name)} />
                             ))}
                           </div>
                         </div>
@@ -746,7 +1090,7 @@ export function DashboardClient({
 
           {/* ── Playlists ─────────────────────────────────────────────────── */}
           {tab === 'playlists' && (
-            <div className="px-6 py-10 max-w-4xl">
+            <div className="px-6 py-10 max-w-5xl">
               {/* Header */}
               <div className="flex items-end justify-between mb-7">
                 <div>
@@ -840,12 +1184,10 @@ export function DashboardClient({
                         </div>
                       )
                       : playlists.map((pl) => (
-                        <button
+                        <div
                           key={pl.id}
-                          type="button"
-                          onClick={() => setActiveId(pl.id)}
                           className={`
-                            w-full text-left px-3.5 py-3 rounded-2xl
+                            group flex items-center gap-1 rounded-2xl
                             transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
                             ${activeId === pl.id
                               ? 'bg-[#FF5500]/8 border border-[#FF5500]/18 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
@@ -853,9 +1195,34 @@ export function DashboardClient({
                             }
                           `}
                         >
-                          <p className={`text-sm font-medium truncate ${activeId === pl.id ? 'text-white' : 'text-white/55'}`}>{pl.name}</p>
-                          {pl.description && <p className="text-xs text-white/25 truncate mt-0.5">{pl.description}</p>}
-                        </button>
+                          {/* Name / select button */}
+                          <button
+                            type="button"
+                            onClick={() => setActiveId(pl.id)}
+                            className="flex-1 min-w-0 text-left px-3.5 py-3"
+                          >
+                            <p className={`text-sm font-medium truncate ${activeId === pl.id ? 'text-white' : 'text-white/55'}`}>{pl.name}</p>
+                            {pl.description && <p className="text-xs text-white/25 truncate mt-0.5">{pl.description}</p>}
+                          </button>
+
+                          {/* Delete button — appears on hover */}
+                          <button
+                            type="button"
+                            title="Delete playlist"
+                            aria-label={`Delete ${pl.name}`}
+                            onClick={(e) => { e.stopPropagation(); deletePlaylist(pl.id); }}
+                            className="
+                              shrink-0 mr-2 w-6 h-6 rounded-full
+                              flex items-center justify-center
+                              text-white/15 hover:text-red-400/80 hover:bg-red-500/[0.08]
+                              opacity-0 group-hover:opacity-100
+                              active:scale-90
+                              transition-all duration-300
+                            "
+                          >
+                            <IcoTrash />
+                          </button>
+                        </div>
                       ))
                   }
                 </aside>
@@ -871,6 +1238,15 @@ export function DashboardClient({
                             <h3 className="text-base font-bold text-white tracking-tight">{activePlaylist.name}</h3>
                             {activePlaylist.description && <p className="text-xs text-white/35 mt-0.5">{activePlaylist.description}</p>}
                             <p className="text-[10px] text-white/20 mt-1 font-mono">{tracks.length} tracks</p>
+                            {playlistHealth && (
+                              <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full w-fit mt-2">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                                  <span className="text-sm">{playlistHealth.emoji}</span>
+                                  <span className="text-[9px] font-bold tracking-[0.2em] text-white/50 uppercase">{playlistHealth.label}</span>
+                                  <span className="text-[9px] text-white/25 hidden sm:inline">— {playlistHealth.description}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {exportUrl ? (
@@ -907,9 +1283,25 @@ export function DashboardClient({
                           )}
                         </div>
 
-                        {exportError && (
+                        {exportError && exportError !== '__reconnect__' && (
                           <div className="mb-4 flex items-center gap-2 px-3.5 py-2.5 bg-red-500/[0.06] border border-red-500/15 rounded-2xl text-xs text-red-400">
                             <IcoAlert />{exportError}
+                          </div>
+                        )}
+                        {exportError === '__reconnect__' && (
+                          <div className="mb-4 px-3.5 py-3 bg-[#FF5500]/[0.06] border border-[#FF5500]/20 rounded-2xl">
+                            <p className="text-xs text-[#FF5500]/80 mb-2 leading-relaxed">
+                              Sonara needs permission to create playlists on your Spotify account. Re-authorize to continue.
+                            </p>
+                            <a
+                              href="/login?reconnect=true"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#FF5500] hover:bg-[#FF6820] px-3 py-1.5 rounded-full transition-colors duration-300"
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                              </svg>
+                              Reconnect Spotify
+                            </a>
                           </div>
                         )}
 
@@ -992,7 +1384,7 @@ export function DashboardClient({
                                   border-b border-white/[0.04] last:border-0
                                   transition-all duration-300
                                 "
-                                onClick={() => track.spotifyUri && setPlayingUri(track.spotifyUri)}
+                                onClick={() => playTrack(track.spotifyUri)}
                               >
                                 <span className="text-[10px] font-mono text-white/20 w-4 text-right shrink-0">{i + 1}</span>
                                 <div className="p-[1px] bg-white/[0.04] border border-white/[0.06] rounded-lg shrink-0">
@@ -1040,19 +1432,127 @@ export function DashboardClient({
         </div>
       </main>
 
-      {/* ── Right Panel — Spotify Player ─────────────────────────────────────── */}
-      <aside className="w-72 shrink-0 border-l border-white/[0.05] bg-[#090909] flex flex-col overflow-y-auto">
-        <div className="px-4 pt-5 pb-3 border-b border-white/[0.05]">
-          {/* Header — double-bezel eyebrow */}
-          <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full w-fit">
-            <div className="flex items-center gap-2 px-3 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF5500]/60 animate-pulse-dot" />
-              <span className="text-[9px] font-semibold tracking-[0.28em] text-[#FF5500]/50 uppercase">Now Playing</span>
+      {/* Shortcuts modal */}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+
+      {/* ── Floating Player Panel ────────────────────────────────────────────── */}
+
+      {/* ── Now-Playing FAB pill ──────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setRightOpen(true)}
+        title="Open player"
+        aria-label="Open player"
+        className={`
+          fixed bottom-6 right-6 z-[35] group
+          flex items-center gap-3
+          pl-[5px] pr-5 py-[5px]
+          rounded-full
+          bg-[#0E0E0E] border border-white/[0.09]
+          shadow-[0_0_0_1px_rgba(255,85,0,0.15),0_8px_40px_rgba(0,0,0,0.7),0_0_32px_rgba(255,85,0,0.12)]
+          hover:shadow-[0_0_0_1px_rgba(255,85,0,0.35),0_8px_40px_rgba(0,0,0,0.7),0_0_48px_rgba(255,85,0,0.2)]
+          active:scale-[0.97]
+          transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+          ${rightOpen ? 'opacity-0 pointer-events-none translate-y-3 scale-90' : 'opacity-100 pointer-events-auto translate-y-0 scale-100'}
+        `}
+      >
+        {/* Album art or headphone icon */}
+        <div className="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-[#FF5500]/20 flex items-center justify-center">
+          {nowPlaying?.albumArt ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={nowPlaying.albumArt} alt="album art" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[#FF5500]"><IcoHeadphones /></span>
+          )}
+          {/* Pulsing ring when playing */}
+          {nowPlaying && !nowPlaying.paused && (
+            <span className="absolute inset-0 rounded-full border-2 border-[#FF5500]/60 animate-ping" />
+          )}
+        </div>
+
+        {/* Track info */}
+        <div className="flex flex-col items-start leading-none min-w-0 max-w-[140px]">
+          {nowPlaying ? (
+            <>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-[#FF5500] font-medium mb-[3px]">
+                {nowPlaying.paused ? 'Paused' : 'Now Playing'}
+              </span>
+              <span className="text-[13px] font-semibold text-white truncate w-full">{nowPlaying.name}</span>
+              <span className="text-[11px] text-white/40 truncate w-full mt-[1px]">{nowPlaying.artist}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-white/30 font-medium mb-[3px]">Player</span>
+              <span className="text-[13px] font-semibold text-white/60">Open player</span>
+            </>
+          )}
+        </div>
+
+        {/* Mini live soundwave bars when playing */}
+        {nowPlaying && !nowPlaying.paused && (
+          <div className="flex items-end gap-[2px] h-4 ml-1 flex-shrink-0">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <span key={i} className="w-[2px] rounded-full bg-[#FF5500] fab-bar" />
+            ))}
+          </div>
+        )}
+      </button>
+
+      {/* Floating glass panel */}
+      <div
+        className={`
+          fixed top-[calc(56px+2rem)] right-4 bottom-4 z-30 w-[280px]
+          transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+          ${rightOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[calc(100%+1rem)] opacity-0 pointer-events-none'}
+        `}
+      >
+        {/* Outer double-bezel shell — glass card */}
+        <div className="
+          h-full flex flex-col
+          p-[1.5px] bg-white/[0.04] border border-white/[0.08] rounded-[2rem]
+          shadow-[0_8px_64px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.03)]
+          backdrop-blur-2xl
+        ">
+          <div className="
+            flex-1 flex flex-col bg-[#0C0C0C]/95 rounded-[calc(2rem-1.5px)]
+            shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)]
+            overflow-hidden
+          ">
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-4 border-b border-white/[0.05] shrink-0">
+              <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full">
+                <div className="flex items-center gap-2 px-3 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF5500]/60 animate-pulse-dot" />
+                  <span className="text-[9px] font-semibold tracking-[0.28em] text-[#FF5500]/50 uppercase">Now Playing</span>
+                </div>
+              </div>
+              {/* Close button */}
+              <button
+                type="button"
+                title="Hide player"
+                aria-label="Hide player"
+                onClick={() => setRightOpen(false)}
+                className="w-6 h-6 rounded-full bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/25 hover:text-white/60 hover:bg-white/[0.07] transition-all duration-300"
+              >
+                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Player content — scrollable */}
+            <div className="flex-1 overflow-y-auto">
+              <SpotifyWebPlayer
+                accessToken={accessToken}
+                trackUri={playingUri}
+                onColorChange={setAmbientColor}
+                onTrackChange={setNowPlaying}
+                controlsRef={playerControlsRef}
+              />
             </div>
           </div>
         </div>
-        <SpotifyWebPlayer accessToken={accessToken} trackUri={playingUri} />
-      </aside>
+      </div>
 
     </div>
   );

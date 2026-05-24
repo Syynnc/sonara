@@ -44,17 +44,16 @@ export async function POST(
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Verify playlist belongs to the user
-  const { data: playlist } = await supabase
-    .from('playlists')
-    .select('id')
-    .eq('id', playlistId)
-    .eq('user_id', user.id)
-    .single();
+  // Verify ownership via Drizzle (consistent with GET)
+  const [playlist] = await db
+    .select({ id: playlists.id })
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.userId, user.id)))
+    .limit(1);
 
   if (!playlist) return NextResponse.json({ error: 'Playlist not found' }, { status: 404 });
 
-  const track = (await request.json()) as {
+  const body = (await request.json()) as {
     spotify_track_id: string;
     track_name?: string;
     artist_name?: string;
@@ -64,27 +63,29 @@ export async function POST(
     spotify_uri?: string;
   };
 
-  if (!track.spotify_track_id) {
+  if (!body.spotify_track_id) {
     return NextResponse.json({ error: 'spotify_track_id required' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('playlist_tracks')
-    .insert({
-      playlist_id: playlistId,
-      spotify_track_id: track.spotify_track_id,
-      track_name: track.track_name ?? null,
-      artist_name: track.artist_name ?? null,
-      album_name: track.album_name ?? null,
-      album_image_url: track.album_image_url ?? null,
-      duration_ms: track.duration_ms ?? null,
-      spotify_uri: track.spotify_uri ?? null,
-    })
-    .select()
-    .single();
+  try {
+    const [inserted] = await db
+      .insert(playlistTracks)
+      .values({
+        playlistId,
+        spotifyTrackId: body.spotify_track_id,
+        trackName:      body.track_name      ?? null,
+        artistName:     body.artist_name     ?? null,
+        albumName:      body.album_name      ?? null,
+        albumImageUrl:  body.album_image_url ?? null,
+        durationMs:     body.duration_ms     ?? null,
+        spotifyUri:     body.spotify_uri     ?? null,
+      })
+      .returning();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(inserted, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 // DELETE /api/spotify/playlists/[id]/tracks?track_id=... — remove a track

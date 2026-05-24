@@ -124,11 +124,10 @@ export async function getSpotifyCurrentUser(
 
 export async function createSpotifyPlaylist(
   token: string,
-  spotifyUserId: string,
   name: string,
   description: string,
 ): Promise<{ id: string; external_urls: { spotify: string } }> {
-  return spotifyFetch(`/users/${spotifyUserId}/playlists`, token, {
+  return spotifyFetch(`/me/playlists`, token, {
     method: 'POST',
     body: JSON.stringify({ name, description, public: false }),
   });

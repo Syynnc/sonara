@@ -21,7 +21,7 @@ export async function GET() {
         spotifyPlaylistId: playlists.spotifyPlaylistId,
         createdAt: playlists.createdAt,
         updatedAt: playlists.updatedAt,
-        playlist_tracks: [{ count: count(playlistTracks.id) }],
+        trackCount: count(playlistTracks.id),
       })
       .from(playlists)
       .leftJoin(playlistTracks, eq(playlists.id, playlistTracks.playlistId))

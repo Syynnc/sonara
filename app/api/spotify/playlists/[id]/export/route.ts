@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import {
   createSpotifyPlaylist,
   addTracksToSpotifyPlaylist,
-  getSpotifyCurrentUser,
   refreshSpotifyToken,
 } from '@/lib/spotify/api';
 
@@ -61,12 +60,17 @@ export async function POST(
   }
 
   try {
-    const spotifyUser = await getSpotifyCurrentUser(accessToken);
+    // Debug: decode token scopes to verify playlist permissions are present
+    try {
+      const [, payload] = accessToken.split('.');
+      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      console.log('[export] token scopes:', decoded?.scope ?? '(no scope field — likely opaque token)');
+      console.log('[export] token expires:', new Date((decoded?.exp ?? 0) * 1000).toISOString());
+    } catch { console.log('[export] could not decode token (opaque)'); }
 
-    // Create playlist on Spotify
+    // Create playlist on Spotify via /me/playlists (no user-id lookup needed)
     const spotifyPlaylist = await createSpotifyPlaylist(
       accessToken,
-      spotifyUser.id,
       playlist.name,
       playlist.description ?? `Exported from Sonara`,
     );
