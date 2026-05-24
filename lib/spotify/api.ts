@@ -25,7 +25,15 @@ async function spotifyFetch<T>(
 
 // ── Client Credentials (server-only, no user required) ─────────────────────
 
+/** Module-level cache — survives across requests within the same server process. */
+let _ccCache: { token: string; expiresAt: number } | null = null;
+
 export async function getClientCredentialsToken(): Promise<string> {
+  // Return cached token if it is still valid for at least 60 s
+  if (_ccCache && Date.now() < _ccCache.expiresAt - 60_000) {
+    return _ccCache.token;
+  }
+
   const credentials = Buffer.from(
     `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
   ).toString('base64');
@@ -40,8 +48,14 @@ export async function getClientCredentialsToken(): Promise<string> {
   });
 
   if (!res.ok) throw new Error('Failed to obtain Spotify client credentials token');
-  const data = await res.json();
-  return data.access_token as string;
+  const data = await res.json() as { access_token: string; expires_in: number };
+
+  _ccCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+
+  return _ccCache.token;
 }
 
 // ── Search (uses CC token — no user required) ───────────────────────────────

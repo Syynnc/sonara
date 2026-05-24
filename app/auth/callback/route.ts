@@ -28,7 +28,13 @@ export async function GET(request: NextRequest) {
 
   // Persist Spotify tokens so server components can make Spotify API calls
   // without relying on the client-only provider_token field.
+  // session.expires_at is a Unix timestamp (seconds) reflecting the actual
+  // provider token lifetime — far more accurate than a hardcoded +3600 s.
   if (session.provider_token) {
+    const tokenExpiresAt = session.expires_at
+      ? new Date(session.expires_at * 1000)
+      : new Date(Date.now() + 3600 * 1000); // fallback: assume 1 h
+
     try {
       await db
         .insert(profiles)
@@ -36,7 +42,7 @@ export async function GET(request: NextRequest) {
           id: session.user.id,
           spotifyAccessToken: session.provider_token,
           spotifyRefreshToken: session.provider_refresh_token ?? null,
-          spotifyTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+          spotifyTokenExpiresAt: tokenExpiresAt,
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
@@ -44,7 +50,7 @@ export async function GET(request: NextRequest) {
           set: {
             spotifyAccessToken: session.provider_token,
             spotifyRefreshToken: session.provider_refresh_token ?? null,
-            spotifyTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+            spotifyTokenExpiresAt: tokenExpiresAt,
             updatedAt: new Date(),
           },
         });

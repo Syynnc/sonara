@@ -54,14 +54,14 @@ export function ArtistTiltCard() {
 
         {/* Float badge */}
         <div
-          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#121212]/70 backdrop-blur-md border border-[#1DB954]/20 rounded-full"
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#121212]/70 backdrop-blur-md border border-[#FF5500]/20 rounded-full"
           style={{ animation: 'float 3.5s ease-in-out infinite' }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full bg-[#1DB954]"
+            className="w-1.5 h-1.5 rounded-full bg-[#FF5500]"
             style={{ animation: 'pulse-dot 2s ease-in-out infinite' }}
           />
-          <span className="text-[10px] font-semibold tracking-widest text-[#1DB954] uppercase">
+          <span className="text-[10px] font-semibold tracking-widest text-[#FF5500] uppercase">
             Featured
           </span>
         </div>
@@ -78,8 +78,8 @@ export function ArtistTiltCard() {
               Lagos-born composer and producer blending West African polyrhythms with synthesized textures.
             </p>
           </div>
-          <button className="shrink-0 w-10 h-10 rounded-full bg-[#1DB954]/10 border border-[#1DB954]/20 flex items-center justify-center hover:bg-[#1DB954]/20 transition-colors">
-            <Music size={15} className="text-[#1DB954]" strokeWidth={1.5} />
+          <button className="shrink-0 w-10 h-10 rounded-full bg-[#FF5500]/10 border border-[#FF5500]/20 flex items-center justify-center hover:bg-[#FF5500]/20 transition-colors">
+            <Music size={15} className="text-[#FF5500]" strokeWidth={1.5} />
           </button>
         </div>
 

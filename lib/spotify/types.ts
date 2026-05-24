@@ -69,14 +69,13 @@ export interface LocalPlaylist {
 
 export interface LocalPlaylistTrack {
   id: string;
-  playlist_id: string;
-  spotify_track_id: string;
-  track_name: string;
-  artist_name: string;
-  album_name: string;
-  album_image_url: string | null;
-  duration_ms: number;
-  spotify_uri: string;
-  position: number;
-  added_at: string;
+  playlistId: string;
+  spotifyTrackId: string;
+  trackName: string | null;
+  artistName: string | null;
+  albumName: string | null;
+  albumImageUrl: string | null;
+  durationMs: number | null;
+  spotifyUri: string | null;
+  addedAt: string | null;
 }

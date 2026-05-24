@@ -51,7 +51,7 @@ export function Soundwave() {
       { amplitude: 0.15, frequency: 0.005, speed: 1.8, opacity: 0.8, width: 4 },
     ];
 
-    const baseColor = [29, 185, 84];
+    const baseColor = [255, 85, 0];
 
     let animationId: number;
 
@@ -138,5 +138,8 @@ export function Soundwave() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="w-full h-full" />;
+  // pointer-events-auto is explicit here because the parent wrapper uses pointer-events-none
+  // to pass scroll events through to the document. HTML elements do NOT inherit
+  // pointer-events from parent, so the canvas still receives mousemove/mouseleave.
+  return <canvas ref={canvasRef} className="w-full h-full [pointer-events:auto]" />;
 }

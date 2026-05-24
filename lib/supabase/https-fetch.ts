@@ -70,6 +70,12 @@ export const httpsFetch: typeof fetch = (input, init) => {
         res.on('error', reject);
       },
     );
+
+    // Abort stalled connections after 10 s to avoid hanging server requests
+    req.setTimeout(10_000, () => {
+      req.destroy(new Error('httpsFetch: request timed out after 10 s'));
+    });
+
     req.on('error', reject);
     if (body) req.write(body);
     req.end();

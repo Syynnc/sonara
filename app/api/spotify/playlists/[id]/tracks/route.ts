@@ -1,6 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { LocalPlaylistTrack } from '@/lib/spotify/types';
+import { db } from '@/lib/db';
+import { playlists, playlistTracks } from '@/lib/db/schema';
+import { eq, and, asc } from 'drizzle-orm';
+
+// GET /api/spotify/playlists/[id]/tracks — list tracks (ownership verified server-side)
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: playlistId } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Verify ownership before returning any data
+  const [playlist] = await db
+    .select({ id: playlists.id })
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.userId, user.id)))
+    .limit(1);
+
+  if (!playlist) return NextResponse.json({ error: 'Playlist not found' }, { status: 404 });
+
+  const tracks = await db
+    .select()
+    .from(playlistTracks)
+    .where(eq(playlistTracks.playlistId, playlistId))
+    .orderBy(asc(playlistTracks.addedAt));
+
+  return NextResponse.json(tracks);
+}
 
 // POST /api/spotify/playlists/[id]/tracks — add a track to a local playlist
 export async function POST(
@@ -46,7 +77,7 @@ export async function POST(
       artist_name: track.artist_name ?? null,
       album_name: track.album_name ?? null,
       album_image_url: track.album_image_url ?? null,
-      duration_ms: track.duration_ms ? String(track.duration_ms) : null,
+      duration_ms: track.duration_ms ?? null,
       spotify_uri: track.spotify_uri ?? null,
     })
     .select()

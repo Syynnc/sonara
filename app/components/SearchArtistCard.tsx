@@ -17,7 +17,7 @@ export function SearchArtistCard({ artist }: { artist: SpotifyArtist }) {
       rel="noopener noreferrer"
       className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-[#242424] transition-colors group text-center cursor-pointer"
     >
-      <div className="w-16 h-16 rounded-full overflow-hidden bg-[#282828] border-2 border-[#282828] group-hover:border-[#1DB954]/30 transition-colors shrink-0">
+      <div className="w-16 h-16 rounded-full overflow-hidden bg-[#282828] border-2 border-[#282828] group-hover:border-[#FF5500]/30 transition-colors shrink-0">
         {image ? (
           <img src={image} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
@@ -37,7 +37,7 @@ export function SearchArtistCard({ artist }: { artist: SpotifyArtist }) {
       </div>
 
       {primaryGenre && (
-        <span className="text-[9px] font-semibold text-[#1DB954]/55 bg-[#1DB954]/8 border border-[#1DB954]/15 px-2 py-0.5 rounded-full uppercase tracking-widest truncate max-w-[110px]">
+        <span className="text-[9px] font-semibold text-[#FF5500]/55 bg-[#FF5500]/8 border border-[#FF5500]/15 px-2 py-0.5 rounded-full uppercase tracking-widest truncate max-w-[110px]">
           {primaryGenre}
         </span>
       )}

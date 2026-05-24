@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey(),
@@ -30,7 +30,7 @@ export const playlistTracks = pgTable('playlist_tracks', {
   artistName: text('artist_name'),
   albumName: text('album_name'),
   albumImageUrl: text('album_image_url'),
-  durationMs: text('duration_ms'),
+  durationMs: integer('duration_ms'),
   spotifyUri: text('spotify_uri'),
   addedAt: timestamp('added_at', { withTimezone: true }).defaultNow(),
 });

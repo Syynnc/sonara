@@ -14,8 +14,8 @@ export function TrendingList() {
     <div className="bg-[#181818] border border-[#282828] rounded-3xl p-7 flex flex-col gap-5 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.55)] h-full">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <TrendingUp size={14} strokeWidth={1.5} className="text-[#1DB954]" />
-        <p className="text-[10px] font-semibold tracking-[0.25em] text-[#1DB954]/55 uppercase">
+        <TrendingUp size={14} strokeWidth={1.5} className="text-[#FF5500]" />
+        <p className="text-[10px] font-semibold tracking-[0.25em] text-[#FF5500]/55 uppercase">
           This Week
         </p>
       </div>
@@ -45,7 +45,7 @@ export function TrendingList() {
               className={`text-[10px] font-mono shrink-0 ${
                 track.delta === '—'
                   ? 'text-[#B3B3B3]/30'
-                  : 'text-emerald-500/70'
+                  : 'text-orange-500/70'
               }`}
             >
               {track.delta}
@@ -54,7 +54,7 @@ export function TrendingList() {
         ))}
       </div>
 
-      <button className="text-xs font-medium text-[#B3B3B3]/40 hover:text-[#1DB954] transition-colors text-left mt-auto">
+      <button className="text-xs font-medium text-[#B3B3B3]/40 hover:text-[#FF5500] transition-colors text-left mt-auto">
         View full chart →
       </button>
     </div>

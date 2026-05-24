@@ -24,6 +24,9 @@ function LoginContent() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         scopes: [
+          'streaming',                    // Web Playback SDK — required
+          'user-read-playback-state',     // read current device / track state
+          'user-modify-playback-state',   // transfer playback, play/pause/seek
           'user-top-read',
           'playlist-modify-public',
           'playlist-modify-private',
@@ -41,15 +44,15 @@ function LoginContent() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(29,185,84,0.06) 0%, transparent 70%)',
+            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255,85,0,0.06) 0%, transparent 70%)',
         }}
       />
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#1DB954]/10 border border-[#1DB954]/20 flex items-center justify-center mb-5">
-            <Headphones size={24} className="text-[#1DB954]" strokeWidth={1.5} />
+          <div className="w-14 h-14 rounded-2xl bg-[#FF5500]/10 border border-[#FF5500]/20 flex items-center justify-center mb-5">
+            <Headphones size={24} className="text-[#FF5500]" strokeWidth={1.5} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#FFFFFF]">Welcome to Sonara</h1>
           <p className="text-sm text-[#B3B3B3]/55 mt-2 text-center max-w-[28ch]">
@@ -67,7 +70,7 @@ function LoginContent() {
         {/* Spotify sign-in button */}
         <button
           onClick={handleSpotifyLogin}
-          className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#1DB954] hover:bg-[#1ed760] text-white font-semibold rounded-2xl transition-all duration-200 active:scale-[0.98] shadow-[0_8px_24px_rgba(29,185,84,0.25)]"
+          className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#FF5500] hover:bg-[#FF6820] text-white font-semibold rounded-2xl transition-all duration-200 active:scale-[0.98] shadow-[0_8px_24px_rgba(255,85,0,0.25)]"
         >
           {/* Spotify SVG icon */}
           <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">

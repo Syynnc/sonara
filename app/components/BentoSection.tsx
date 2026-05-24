@@ -8,7 +8,7 @@ export function BentoSection() {
     <section className="max-w-7xl mx-auto px-6 py-20">
       {/* Section header */}
       <div className="mb-12">
-        <p className="text-[10px] font-semibold tracking-[0.3em] text-[#1DB954]/50 uppercase mb-3">
+        <p className="text-[10px] font-semibold tracking-[0.3em] text-[#FF5500]/50 uppercase mb-3">
           What's inside
         </p>
         <h2 className="text-3xl md:text-4xl font-bold tracking-tighter text-[#FFFFFF] leading-tight max-w-[18ch]">

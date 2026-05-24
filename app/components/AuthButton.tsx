@@ -43,7 +43,7 @@ export function AuthButton() {
     return (
       <a
         href="/login"
-        className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-[#121212] bg-[#1DB954] rounded-full hover:bg-[#1ed760] transition-all duration-300 active:scale-[0.98]"
+        className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-[#121212] bg-[#FF5500] rounded-full hover:bg-[#FF6820] transition-all duration-300 active:scale-[0.98]"
       >
         Sign In
       </a>
@@ -61,7 +61,7 @@ export function AuthButton() {
       </a>
       <button
         onClick={handleSignOut}
-        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-[#B3B3B3]/60 border border-[#282828] rounded-full hover:border-[#1DB954]/30 hover:text-[#FFFFFF] transition-all duration-200 active:scale-[0.98]"
+        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-[#B3B3B3]/60 border border-[#282828] rounded-full hover:border-[#FF5500]/30 hover:text-[#FFFFFF] transition-all duration-200 active:scale-[0.98]"
       >
         <LogOut size={13} strokeWidth={1.5} />
         <span className="hidden md:inline">Sign Out</span>
