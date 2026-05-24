@@ -10,7 +10,7 @@ const LANDING_LINKS = [
   { label: 'About',        href: '#about' },
 ];
 
-const APP_ROUTES = ['/dashboard', '/search', '/playlists'];
+const APP_ROUTES = ['/dashboard', '/search', '/playlists', '/login'];
 
 function HeadphonesIcon() {
   return (

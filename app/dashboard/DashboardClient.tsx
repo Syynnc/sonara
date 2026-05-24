@@ -663,6 +663,19 @@ export function DashboardClient({
     setRightOpen(true);
   }, []);
 
+  const playAll = useCallback(() => {
+    const first = tracks.find((t) => t.spotifyUri);
+    if (!first?.spotifyUri) return;
+    playTrack(first.spotifyUri);
+  }, [tracks, playTrack]);
+
+  const shufflePlay = useCallback(() => {
+    const withUri = tracks.filter((t) => t.spotifyUri);
+    if (!withUri.length) return;
+    const pick = withUri[Math.floor(Math.random() * withUri.length)];
+    playTrack(pick.spotifyUri);
+  }, [tracks, playTrack]);
+
   const activePlaylist = playlists.find((p) => p.id === activeId);
   const searchTracks   = results?.tracks?.items  ?? [];
   const searchArtists  = results?.artists?.items ?? [];
@@ -1294,7 +1307,7 @@ export function DashboardClient({
                               Sonara needs permission to create playlists on your Spotify account. Re-authorize to continue.
                             </p>
                             <a
-                              href="/login?reconnect=true"
+                              href="/api/auth/signout?reconnect=true"
                               className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#FF5500] hover:bg-[#FF6820] px-3 py-1.5 rounded-full transition-colors duration-300"
                             >
                               <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
@@ -1354,6 +1367,53 @@ export function DashboardClient({
                       </div>
                     )}
 
+                    {/* Play controls */}
+                    {tracks.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        {/* Play All */}
+                        <button
+                          type="button"
+                          onClick={playAll}
+                          className="
+                            group flex items-center gap-2 pl-3 pr-4 py-2 rounded-full
+                            bg-[#FF5500] hover:bg-[#FF6820] active:scale-[0.97]
+                            text-white text-xs font-semibold
+                            shadow-[0_4px_16px_rgba(255,85,0,0.25)]
+                            transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+                          "
+                        >
+                          <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                            <svg viewBox="0 0 8 8" className="w-2 h-2 fill-white translate-x-[0.5px]"><polygon points="1,0 7,4 1,8" /></svg>
+                          </span>
+                          Play All
+                        </button>
+                        {/* Shuffle */}
+                        <button
+                          type="button"
+                          onClick={shufflePlay}
+                          className="
+                            group flex items-center gap-2 pl-3 pr-4 py-2 rounded-full
+                            bg-white/[0.05] hover:bg-white/[0.09] active:scale-[0.97]
+                            border border-white/[0.07] hover:border-white/[0.14]
+                            text-white/50 hover:text-white/80 text-xs font-medium
+                            transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+                          "
+                        >
+                          <span className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                            {/* Shuffle icon */}
+                            <svg viewBox="0 0 16 16" className="w-3 h-3 fill-none stroke-current" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 4h2.5a4 4 0 0 1 3.2 1.6L9 7" />
+                              <path d="M14 4h-2.5a4 4 0 0 0-3.2 1.6l-2.6 3.2A4 4 0 0 1 2.5 12H2" />
+                              <path d="M11.5 2 14 4l-2.5 2M11.5 10 14 12l-2.5 2" />
+                              <path d="M9 9l.3.4A4 4 0 0 0 12.5 11H14" />
+                            </svg>
+                          </span>
+                          Shuffle
+                        </button>
+                        <span className="ml-auto text-[10px] text-white/20 tabular-nums">{tracks.length} track{tracks.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+
                     {/* Track list — double-bezel */}
                     <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] overflow-hidden">
@@ -1386,7 +1446,11 @@ export function DashboardClient({
                                 "
                                 onClick={() => playTrack(track.spotifyUri)}
                               >
-                                <span className="text-[10px] font-mono text-white/20 w-4 text-right shrink-0">{i + 1}</span>
+                                {/* Track number / play icon */}
+                                <div className="w-4 shrink-0 flex items-center justify-center">
+                                  <span className="text-[10px] font-mono text-white/20 group-hover:hidden">{i + 1}</span>
+                                  <svg viewBox="0 0 8 8" className="hidden group-hover:block w-2.5 h-2.5 fill-[#FF5500] translate-x-[0.5px]"><polygon points="1,0 7,4 1,8" /></svg>
+                                </div>
                                 <div className="p-[1px] bg-white/[0.04] border border-white/[0.06] rounded-lg shrink-0">
                                   <div className="w-8 h-8 rounded-[calc(0.5rem-1px)] overflow-hidden bg-[#111]">
                                     {track.albumImageUrl && <img src={track.albumImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />}
@@ -1541,7 +1605,7 @@ export function DashboardClient({
             </div>
 
             {/* Player content — scrollable */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 flex flex-col overflow-y-auto">
               <SpotifyWebPlayer
                 accessToken={accessToken}
                 trackUri={playingUri}

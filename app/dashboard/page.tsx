@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 import { DashboardClient } from './DashboardClient';
 import type { SpotifyTrack, SpotifyArtist } from '@/lib/spotify/types';
 
+// Never serve a cached version — always re-validate auth on every request
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

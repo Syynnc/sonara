@@ -60,13 +60,18 @@ export async function POST(
   }
 
   try {
-    // Debug: decode token scopes to verify playlist permissions are present
-    try {
-      const [, payload] = accessToken.split('.');
-      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString());
-      console.log('[export] token scopes:', decoded?.scope ?? '(no scope field — likely opaque token)');
-      console.log('[export] token expires:', new Date((decoded?.exp ?? 0) * 1000).toISOString());
-    } catch { console.log('[export] could not decode token (opaque)'); }
+    // Verify token and log scopes via /me endpoint
+    const { httpsFetch } = await import('@/lib/supabase/https-fetch');
+    const meRes = await httpsFetch('https://api.spotify.com/v1/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const meData = await meRes.json() as Record<string, unknown>;
+    console.log('[export] /me status:', meRes.status);
+    console.log('[export] spotify user id:', meData.id);
+    console.log('[export] product (premium?):', meData.product);
+    if (!meRes.ok) {
+      return NextResponse.json({ error: `Spotify /me failed: ${meRes.status}` }, { status: 401 });
+    }
 
     // Create playlist on Spotify via /me/playlists (no user-id lookup needed)
     const spotifyPlaylist = await createSpotifyPlaylist(
