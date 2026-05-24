@@ -26,5 +26,11 @@ export const playlistTracks = pgTable('playlist_tracks', {
   id: uuid('id').defaultRandom().primaryKey(),
   playlistId: uuid('playlist_id').notNull().references(() => playlists.id, { onDelete: 'cascade' }),
   spotifyTrackId: text('spotify_track_id').notNull(),
+  trackName: text('track_name'),
+  artistName: text('artist_name'),
+  albumName: text('album_name'),
+  albumImageUrl: text('album_image_url'),
+  durationMs: text('duration_ms'),
+  spotifyUri: text('spotify_uri'),
   addedAt: timestamp('added_at', { withTimezone: true }).defaultNow(),
 });

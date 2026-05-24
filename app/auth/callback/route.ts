@@ -26,9 +26,6 @@ export async function GET(request: NextRequest) {
 
   const { session } = data;
 
-  console.log('[auth/callback] provider_token present:', !!session.provider_token);
-  console.log('[auth/callback] user id:', session.user.id);
-
   // Persist Spotify tokens so server components can make Spotify API calls
   // without relying on the client-only provider_token field.
   if (session.provider_token) {
@@ -51,7 +48,6 @@ export async function GET(request: NextRequest) {
             updatedAt: new Date(),
           },
         });
-      console.log('[auth/callback] profile upsert OK');
     } catch (e) {
       console.error('[auth/callback] profile upsert FAILED:', e);
     }

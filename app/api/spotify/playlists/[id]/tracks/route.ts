@@ -23,22 +23,32 @@ export async function POST(
 
   if (!playlist) return NextResponse.json({ error: 'Playlist not found' }, { status: 404 });
 
-  const track = (await request.json()) as Omit<LocalPlaylistTrack, 'id' | 'playlist_id' | 'added_at'>;
+  const track = (await request.json()) as {
+    spotify_track_id: string;
+    track_name?: string;
+    artist_name?: string;
+    album_name?: string;
+    album_image_url?: string;
+    duration_ms?: number;
+    spotify_uri?: string;
+  };
 
-  // Get current max position
-  const { data: lastTrack } = await supabase
-    .from('playlist_tracks')
-    .select('position')
-    .eq('playlist_id', playlistId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const position = (lastTrack?.position ?? -1) + 1;
+  if (!track.spotify_track_id) {
+    return NextResponse.json({ error: 'spotify_track_id required' }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from('playlist_tracks')
-    .insert({ ...track, playlist_id: playlistId, position })
+    .insert({
+      playlist_id: playlistId,
+      spotify_track_id: track.spotify_track_id,
+      track_name: track.track_name ?? null,
+      artist_name: track.artist_name ?? null,
+      album_name: track.album_name ?? null,
+      album_image_url: track.album_image_url ?? null,
+      duration_ms: track.duration_ms ? String(track.duration_ms) : null,
+      spotify_uri: track.spotify_uri ?? null,
+    })
     .select()
     .single();
 
