@@ -1,14 +1,18 @@
-﻿import { HeroSection } from './components/HeroSection';
+import { HeroSection } from './components/HeroSection';
 import { TrendingMarquee } from './components/TrendingMarquee';
-import { BentoSection } from './components/BentoSection';
+import { FeaturesSection } from './components/FeaturesSection';
+import { HowItWorksSection } from './components/HowItWorksSection';
+import { AboutSection } from './components/AboutSection';
 import { Footer } from './components/Footer';
 
 export default function Home() {
   return (
-    <main className="min-h-[100dvh] bg-[#121212] overflow-x-hidden">
+    <main className="min-h-[100dvh] bg-[#080808] overflow-x-hidden">
       <HeroSection />
       <TrendingMarquee />
-      <BentoSection />
+      <FeaturesSection />
+      <HowItWorksSection />
+      <AboutSection />
       <Footer />
     </main>
   );

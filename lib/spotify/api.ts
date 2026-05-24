@@ -1,4 +1,5 @@
 import type { SpotifySearchResult, SpotifyTrack, SpotifyArtist } from './types';
+import { httpsFetch } from '@/lib/supabase/https-fetch';
 
 const BASE = 'https://api.spotify.com/v1';
 
@@ -7,7 +8,7 @@ async function spotifyFetch<T>(
   token: string,
   options?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await httpsFetch(`${BASE}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -24,25 +25,37 @@ async function spotifyFetch<T>(
 
 // ── Client Credentials (server-only, no user required) ─────────────────────
 
+/** Module-level cache — survives across requests within the same server process. */
+let _ccCache: { token: string; expiresAt: number } | null = null;
+
 export async function getClientCredentialsToken(): Promise<string> {
+  // Return cached token if it is still valid for at least 60 s
+  if (_ccCache && Date.now() < _ccCache.expiresAt - 60_000) {
+    return _ccCache.token;
+  }
+
   const credentials = Buffer.from(
     `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
   ).toString('base64');
 
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+  const res = await httpsFetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       Authorization: `Basic ${credentials}`,
     },
     body: 'grant_type=client_credentials',
-    // Cache the CC token for ~55 minutes (tokens are valid for 1 hour)
-    next: { revalidate: 3300 },
   });
 
   if (!res.ok) throw new Error('Failed to obtain Spotify client credentials token');
-  const data = await res.json();
-  return data.access_token as string;
+  const data = await res.json() as { access_token: string; expires_in: number };
+
+  _ccCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+
+  return _ccCache.token;
 }
 
 // ── Search (uses CC token — no user required) ───────────────────────────────
@@ -51,12 +64,30 @@ export async function searchSpotify(
   query: string,
   token: string,
   types = 'track,artist',
-  limit = 20,
+  limit = 5,
 ): Promise<SpotifySearchResult> {
   return spotifyFetch(
     `/search?q=${encodeURIComponent(query)}&type=${types}&limit=${limit}`,
     token,
   );
+}
+
+export async function refreshSpotifyToken(refreshToken: string): Promise<{ access_token: string; expires_in: number }> {
+  const credentials = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
+  ).toString('base64');
+
+  const res = await httpsFetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${credentials}`,
+    },
+    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+  });
+
+  if (!res.ok) throw new Error('Failed to refresh Spotify token');
+  return res.json();
 }
 
 // ── User endpoints (require OAuth user token) ───────────────────────────────
@@ -93,11 +124,10 @@ export async function getSpotifyCurrentUser(
 
 export async function createSpotifyPlaylist(
   token: string,
-  spotifyUserId: string,
   name: string,
   description: string,
 ): Promise<{ id: string; external_urls: { spotify: string } }> {
-  return spotifyFetch(`/users/${spotifyUserId}/playlists`, token, {
+  return spotifyFetch(`/me/playlists`, token, {
     method: 'POST',
     body: JSON.stringify({ name, description, public: false }),
   });

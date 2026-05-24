@@ -3,7 +3,8 @@
 :root {
   --background: #121212;
   --foreground: #FFFFFF;
-  --gold: #1DB954;
+  --gold: #FF5500;
+  --gold-hover: #FF6820;
   --gold-muted: #B3B3B3;
   --surface: #181818;
   --surface-2: #242424;
@@ -23,15 +24,108 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* ── Custom scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  {
+  background: rgba(255,255,255,0.07);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* Taste DNA trait bar — width driven by --tw custom property set via JS */
+.taste-trait-bar { width: var(--tw, 0%); }
+
+/* Ambient glow overlay — color driven by --ambient-rgb custom property set via JS */
+.ambient-glow {
+  background: radial-gradient(
+    ellipse 70% 60% at 80% 50%,
+    rgba(var(--ambient-rgb, 0,0,0), 0.07) 0%,
+    transparent 70%
+  );
+}
+
 @keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
+}
+
+/* Marquee speed variants */
+.marquee-fwd  { animation: marquee 34s linear infinite; }
+.marquee-rev  { animation: marquee 28s linear infinite reverse; }
+
+/* ── Custom range slider — hides all native chrome ──────────────────────────
+   Usage: overlay a transparent <input type="range" class="slider-raw"> over
+   a custom-rendered track. The input handles pointer events; the UI is pure CSS.
+*/
+.slider-raw {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
+.slider-raw::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+}
+.slider-raw::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: none;
+  background: transparent;
+}
+.slider-raw::-ms-thumb {
+  width: 0;
+  height: 0;
+}
+.slider-raw::-webkit-slider-runnable-track { background: transparent; }
+.slider-raw::-moz-range-track             { background: transparent; }
+
+/* ── Custom slider — dynamic fill & thumb position via CSS custom property ───
+   The React component sets --slider-pct via DOM style.setProperty (not JSX
+   style={}) so we avoid inline-style lint warnings while keeping full reactivity.
+*/
+.slider-fill      { width: var(--slider-pct, 0%); }
+.slider-thumb-pos { left:  var(--slider-pct, 0%); }
+
+/* ── Player waveform bar — play state toggled via parent class ─────────────── */
+.player-waveform-bar {
+  border-radius: 9999px;
+  transform-origin: bottom;
+  animation-name: bar-dance;
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+}
+.player-playing .player-waveform-bar {
+  animation-play-state: running;
 }
 
 @keyframes bar-dance {
   0%, 100% { transform: scaleY(0.2); }
   50% { transform: scaleY(1); }
 }
+
+/* FAB mini soundwave bars — staggered via nth-child, no inline styles */
+.fab-bar {
+  animation: bar-dance 0.9s ease-in-out infinite;
+  transform-origin: bottom;
+}
+.fab-bar:nth-child(1) { animation-delay: 0ms;   height: 6px; }
+.fab-bar:nth-child(2) { animation-delay: 80ms;  height: 10px; }
+.fab-bar:nth-child(3) { animation-delay: 160ms; height: 8px; }
+.fab-bar:nth-child(4) { animation-delay: 240ms; height: 12px; }
+.fab-bar:nth-child(5) { animation-delay: 320ms; height: 6px; }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(20px); }
@@ -61,4 +155,205 @@ body {
 @keyframes count-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(3.5rem); filter: blur(8px); }
+  to   { opacity: 1; transform: translateY(0);      filter: blur(0px); }
+}
+
+@keyframes reveal-scale {
+  from { opacity: 0; transform: scale(0.94) translateY(1.5rem); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);      }
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -20px) scale(1.05); }
+  66%  { transform: translate(-20px, 15px) scale(0.97); }
+}
+
+@keyframes shimmer-sweep {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+/* ── Scroll-reveal states (toggled by IntersectionObserver via data-attr) ── */
+/*
+  Usage: add data-reveal="hidden" on mount, then data-reveal="visible" when
+  the IntersectionObserver fires. Both the transition duration and per-element
+  stagger delay are set here with CSS custom properties.
+*/
+[data-reveal] {
+  transition-property: opacity, transform, filter;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: var(--reveal-duration, 900ms);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+[data-reveal="hidden"] {
+  opacity: 0;
+  transform: translateY(2.5rem);
+  filter: blur(6px);
+}
+[data-reveal="visible"] {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0px);
+}
+
+/* ── Hero ambient orbs ───────────────────────────────────────────────────── */
+.hero-orb-primary {
+  background: radial-gradient(circle, rgba(255,85,0,0.10) 0%, transparent 70%);
+  animation: orb-drift 18s ease-in-out infinite;
+}
+.hero-orb-secondary {
+  background: radial-gradient(circle, rgba(255,85,0,0.06) 0%, transparent 70%);
+  animation: orb-drift 24s ease-in-out infinite reverse;
+}
+
+/* ── Hero typography clamps ──────────────────────────────────────────────── */
+.text-display-xl { font-size: clamp(3.6rem, 10vw, 7.5rem); }
+.text-body-fluid  { font-size: clamp(0.95rem, 1.8vw, 1.1rem); }
+
+/* ── Shimmer accent text ─────────────────────────────────────────────────── */
+.text-shimmer {
+  background: linear-gradient(135deg, #FF5500 0%, #FF8C42 50%, #FF5500 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer-sweep 4s linear infinite;
+}
+
+/* ── Reusable animation utility classes ─────────────────────────────────── */
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-up-delay-1 {
+    animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+  .animate-fade-up-delay-2 {
+    animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+  }
+  .animate-fade-up-fast {
+    animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-up-modal {
+    animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-up-results {
+    animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-up-results-delay {
+    animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+
+  /* Search input left padding to clear the icon */
+  .pl-search { padding-left: 3.25rem; }
+
+  /* Staggered track-row entrance (25 ms steps, up to 20 items) */
+  .stagger-0  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0ms   both; }
+  .stagger-1  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 25ms  both; }
+  .stagger-2  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 50ms  both; }
+  .stagger-3  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 75ms  both; }
+  .stagger-4  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 100ms both; }
+  .stagger-5  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 125ms both; }
+  .stagger-6  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 150ms both; }
+  .stagger-7  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 175ms both; }
+  .stagger-8  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 200ms both; }
+  .stagger-9  { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 225ms both; }
+  .stagger-10 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 250ms both; }
+  .stagger-11 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 275ms both; }
+  .stagger-12 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 300ms both; }
+  .stagger-13 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 325ms both; }
+  .stagger-14 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 350ms both; }
+  .stagger-15 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 375ms both; }
+  .stagger-16 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 400ms both; }
+  .stagger-17 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 425ms both; }
+  .stagger-18 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 450ms both; }
+  .stagger-19 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 475ms both; }
+  .stagger-20 { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) 500ms both; }
+
+  /* Slow spin for vinyl effect */
+  .animate-spin-slow { animation: spin 8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Hero typography — clamp sizes */
+  .text-hero-headline { font-size: clamp(3.2rem, 9vw, 6.5rem); }
+  .text-hero-body     { font-size: clamp(0.95rem, 1.8vw, 1.1rem); }
+
+  /* Hero gradient overlay */
+  .hero-gradient {
+    background: linear-gradient(to right, #121212 0%, #121212 38%, rgba(18,18,18,0.82) 58%, rgba(18,18,18,0.3) 75%, transparent 100%);
+  }
+
+  /* Pulse dot animation utility */
+  .animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+  /* ── Waveform bar heights (as % of container) ─────────────────────── */
+  .bar-h-0  { height: 38%; } .bar-h-1  { height: 62%; } .bar-h-2  { height: 44%; }
+  .bar-h-3  { height: 80%; } .bar-h-4  { height: 32%; } .bar-h-5  { height: 72%; }
+  .bar-h-6  { height: 54%; } .bar-h-7  { height: 90%; } .bar-h-8  { height: 40%; }
+  .bar-h-9  { height: 68%; } .bar-h-10 { height: 50%; } .bar-h-11 { height: 84%; }
+  .bar-h-12 { height: 36%; } .bar-h-13 { height: 74%; } .bar-h-14 { height: 48%; }
+  .bar-h-15 { height: 88%; } .bar-h-16 { height: 34%; } .bar-h-17 { height: 66%; }
+  .bar-h-18 { height: 56%; } .bar-h-19 { height: 78%; } .bar-h-20 { height: 42%; }
+  .bar-h-21 { height: 70%; } .bar-h-22 { height: 46%; } .bar-h-23 { height: 82%; }
+  .bar-h-24 { height: 38%; } .bar-h-25 { height: 64%; } .bar-h-26 { height: 52%; }
+  .bar-h-27 { height: 76%; } .bar-h-28 { height: 44%; } .bar-h-29 { height: 86%; }
+  .bar-h-30 { height: 36%; } .bar-h-31 { height: 72%; }
+
+  /* Waveform bar animation durations */
+  .bar-d-0  { animation-duration: 0.75s; } .bar-d-1  { animation-duration: 1.05s; }
+  .bar-d-2  { animation-duration: 0.88s; } .bar-d-3  { animation-duration: 1.25s; }
+  .bar-d-4  { animation-duration: 0.68s; } .bar-d-5  { animation-duration: 1.12s; }
+  .bar-d-6  { animation-duration: 0.95s; } .bar-d-7  { animation-duration: 1.35s; }
+  .bar-d-8  { animation-duration: 0.80s; } .bar-d-9  { animation-duration: 1.00s; }
+  .bar-d-10 { animation-duration: 0.90s; } .bar-d-11 { animation-duration: 1.20s; }
+
+  /* Waveform bar animation delays */
+  .bar-delay-0  { animation-delay: 0s;    } .bar-delay-1  { animation-delay: 0.28s; }
+  .bar-delay-2  { animation-delay: 0.12s; } .bar-delay-3  { animation-delay: 0.44s; }
+  .bar-delay-4  { animation-delay: 0.06s; } .bar-delay-5  { animation-delay: 0.38s; }
+  .bar-delay-6  { animation-delay: 0.20s; } .bar-delay-7  { animation-delay: 0.52s; }
+  .bar-delay-8  { animation-delay: 0.10s; } .bar-delay-9  { animation-delay: 0.34s; }
+  .bar-delay-10 { animation-delay: 0.16s; } .bar-delay-11 { animation-delay: 0.48s; }
+
+  /* Waveform base animation — all bars share this */
+  .waveform-bar {
+    width: 3px;
+    border-radius: 9999px;
+    background-color: #FF5500;
+    transform-origin: bottom;
+    animation-name: bar-dance;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+  }
+  /* Parent toggles running state */
+  .waveform-playing .waveform-bar { animation-play-state: running; }
+
+  /* Progress bar states */
+  .progress-bar-playing { animation: progress-fill 227s linear forwards; }
+  .progress-bar-paused  { width: 36.8%; animation: none; }
+
+  /* Mobile nav stagger (60 ms steps, up to 5 items) */
+  .nav-stagger-0 { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 0ms   both; }
+  .nav-stagger-1 { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 60ms  both; }
+  .nav-stagger-2 { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 120ms both; }
+  .nav-stagger-3 { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 180ms both; }
+  .nav-stagger-4 { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 240ms both; }
+
+  /* Staggered card entrance (30 ms steps, up to 10 items — search result tracks) */
+  .stagger-30-0  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0ms   both; }
+  .stagger-30-1  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 30ms  both; }
+  .stagger-30-2  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 60ms  both; }
+  .stagger-30-3  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 90ms  both; }
+  .stagger-30-4  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+  .stagger-30-5  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 150ms both; }
+  .stagger-30-6  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 180ms both; }
+  .stagger-30-7  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 210ms both; }
+  .stagger-30-8  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 240ms both; }
+  .stagger-30-9  { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) 270ms both; }
 }

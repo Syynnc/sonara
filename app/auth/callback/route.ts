@@ -1,3 +1,5 @@
+import { db } from '@/lib/db';
+import { profiles } from '@/lib/db/schema';
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -26,18 +28,35 @@ export async function GET(request: NextRequest) {
 
   // Persist Spotify tokens so server components can make Spotify API calls
   // without relying on the client-only provider_token field.
+  // session.expires_at is a Unix timestamp (seconds) reflecting the actual
+  // provider token lifetime — far more accurate than a hardcoded +3600 s.
   if (session.provider_token) {
-    await supabase.from('profiles').upsert(
-      {
-        id: session.user.id,
-        spotify_access_token: session.provider_token,
-        spotify_refresh_token: session.provider_refresh_token ?? null,
-        // Spotify tokens expire in 1 hour
-        spotify_token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' },
-    );
+    const tokenExpiresAt = session.expires_at
+      ? new Date(session.expires_at * 1000)
+      : new Date(Date.now() + 3600 * 1000); // fallback: assume 1 h
+
+    try {
+      await db
+        .insert(profiles)
+        .values({
+          id: session.user.id,
+          spotifyAccessToken: session.provider_token,
+          spotifyRefreshToken: session.provider_refresh_token ?? null,
+          spotifyTokenExpiresAt: tokenExpiresAt,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: profiles.id,
+          set: {
+            spotifyAccessToken: session.provider_token,
+            spotifyRefreshToken: session.provider_refresh_token ?? null,
+            spotifyTokenExpiresAt: tokenExpiresAt,
+            updatedAt: new Date(),
+          },
+        });
+    } catch (e) {
+      console.error('[auth/callback] profile upsert FAILED:', e);
+    }
   }
 
   return NextResponse.redirect(`${origin}${next}`);

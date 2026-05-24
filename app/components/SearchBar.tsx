@@ -67,7 +67,7 @@ export function SearchBar() {
           isFocused ? 'scale-[1.015]' : 'scale-100'
         }`}
       >
-        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1DB954]/50 pointer-events-none z-10">
+        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#FF5500]/50 pointer-events-none z-10">
           <Search size={19} strokeWidth={1.5} />
         </div>
 
@@ -79,7 +79,7 @@ export function SearchBar() {
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          className="w-full bg-[#181818]/80 backdrop-blur-md border border-[#282828] rounded-2xl py-4 pl-14 pr-6 text-[#FFFFFF] placeholder:text-[#B3B3B3]/40 focus:outline-none focus:border-[#1DB954]/40 focus:bg-[#181818] transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.45)] text-[15px]"
+          className="w-full bg-[#181818]/80 backdrop-blur-md border border-[#282828] rounded-2xl py-4 pl-14 pr-6 text-[#FFFFFF] placeholder:text-[#B3B3B3]/40 focus:outline-none focus:border-[#FF5500]/40 focus:bg-[#181818] transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.45)] text-[15px]"
         />
 
         {/* Blinking cursor after placeholder when not focused and not typing */}
@@ -92,7 +92,7 @@ export function SearchBar() {
               transform: 'translateY(-50%)',
               width: '1.5px',
               height: '16px',
-              backgroundColor: 'rgba(29,185,84,0.5)',
+              backgroundColor: 'rgba(255,85,0,0.5)',
               animation: 'cursor-blink 1.1s step-end infinite',
             }}
           />
@@ -101,7 +101,7 @@ export function SearchBar() {
         {value && (
           <button
             onClick={() => {}}
-            className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-[#1DB954] text-[#121212] text-sm font-semibold rounded-xl hover:bg-[#1ed760] transition-colors active:scale-[0.97]"
+            className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-[#FF5500] text-[#121212] text-sm font-semibold rounded-xl hover:bg-[#FF6820] transition-colors active:scale-[0.97]"
           >
             Search
           </button>
@@ -124,7 +124,7 @@ export function SearchBar() {
               e.preventDefault();
               setValue(genre);
             }}
-            className="px-3 py-1 text-xs font-medium text-[#B3B3B3] bg-[#181818]/60 border border-[#282828] rounded-full hover:border-[#1DB954]/40 hover:text-[#1DB954] transition-all duration-200 backdrop-blur-sm"
+            className="px-3 py-1 text-xs font-medium text-[#B3B3B3] bg-[#181818]/60 border border-[#282828] rounded-full hover:border-[#FF5500]/40 hover:text-[#FF5500] transition-all duration-200 backdrop-blur-sm"
           >
             {genre}
           </button>

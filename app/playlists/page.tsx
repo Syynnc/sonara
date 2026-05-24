@@ -1,20 +1,12 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, ExternalLink, Loader2, Search, ListMusic } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Loader2, Search, ListMusic, AlertCircle } from 'lucide-react';
 import { formatDuration } from '@/app/components/TrackCard';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import type { SpotifyTrack, SpotifySearchResult, LocalPlaylist, LocalPlaylistTrack } from '@/lib/spotify/types';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function useDebounce(value: string, delay: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
 
 function CreatePlaylistModal({
   onClose,
@@ -27,6 +19,15 @@ function CreatePlaylistModal({
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Close on Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -37,11 +38,13 @@ function CreatePlaylistModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#121212]/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#121212]/80 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-[#181818] border border-[#282828] rounded-3xl p-7"
-        style={{ animation: 'fade-up 0.3s cubic-bezier(0.16,1,0.3,1) both' }}
+        className="w-full max-w-sm bg-[#181818] border border-[#282828] rounded-3xl p-7 animate-fade-up-modal"
       >
         <h2 className="text-lg font-bold text-[#FFFFFF] tracking-tight mb-6">New playlist</h2>
 
@@ -54,17 +57,19 @@ function CreatePlaylistModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="My playlist"
               autoFocus
-              className="w-full bg-[#121212] border border-[#282828] rounded-xl px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#1DB954]/40 transition-colors"
+              className="w-full bg-[#121212] border border-[#282828] rounded-xl px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#FF5500]/40 transition-colors"
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-[#B3B3B3]/60 mb-1.5 block">Description <span className="text-[#B3B3B3]/30">(optional)</span></label>
+            <label className="text-xs font-medium text-[#B3B3B3]/60 mb-1.5 block">
+              Description <span className="text-[#B3B3B3]/30">(optional)</span>
+            </label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your playlist"
-              className="w-full bg-[#121212] border border-[#282828] rounded-xl px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#1DB954]/40 transition-colors"
+              className="w-full bg-[#121212] border border-[#282828] rounded-xl px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#FF5500]/40 transition-colors"
             />
           </div>
         </div>
@@ -80,7 +85,7 @@ function CreatePlaylistModal({
           <button
             type="submit"
             disabled={!name.trim() || creating}
-            className="flex-1 py-2.5 text-sm font-semibold text-[#121212] bg-[#1DB954] rounded-xl hover:bg-[#1ed760] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 text-sm font-semibold text-[#121212] bg-[#FF5500] rounded-xl hover:bg-[#FF6820] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? 'Creating…' : 'Create'}
           </button>
@@ -101,40 +106,46 @@ export default function PlaylistsPage() {
   const [loadingTracks, setLoadingTracks] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   // Track search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([]);
   const [searching, setSearching] = useState(false);
-  const debouncedSearch = useDebounce(searchQuery, 380);
   const searchRef = useRef<HTMLInputElement>(null);
+  const debouncedSearch = useDebounce(searchQuery, 380);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchPlaylists = useCallback(async () => {
-    const res = await fetch('/api/spotify/playlists');
-    if (!res.ok) return;
-    const data = await res.json();
-    setPlaylists(data);
-    setLoadingPlaylists(false);
+    setLoadingPlaylists(true);
+    try {
+      const res = await fetch('/api/spotify/playlists');
+      if (!res.ok) return;
+      const data = await res.json();
+      setPlaylists(data);
+    } finally {
+      // Always clear the loading state — even on network failure
+      setLoadingPlaylists(false);
+    }
   }, []);
 
   useEffect(() => { fetchPlaylists(); }, [fetchPlaylists]);
 
   const fetchTracks = useCallback(async (playlistId: string) => {
     setLoadingTracks(true);
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/playlist_tracks?playlist_id=eq.${playlistId}&order=position.asc`,
-      { headers: { apikey: supabaseKey!, Authorization: `Bearer ${supabaseKey}` } },
-    );
-    if (res.ok) setTracks(await res.json());
-    setLoadingTracks(false);
+    try {
+      // Uses our authenticated API route — ownership is verified server-side
+      const res = await fetch(`/api/spotify/playlists/${playlistId}/tracks`);
+      if (res.ok) setTracks(await res.json());
+    } finally {
+      setLoadingTracks(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (activeId) { setExportUrl(null); fetchTracks(activeId); }
+    if (activeId) { setExportUrl(null); setExportError(null); fetchTracks(activeId); }
   }, [activeId, fetchTracks]);
 
   // ── Track search ───────────────────────────────────────────────────────────
@@ -166,7 +177,7 @@ export default function PlaylistsPage() {
 
   const addTrack = async (track: SpotifyTrack) => {
     if (!activeId) return;
-    if (tracks.some((t) => t.spotify_track_id === track.id)) return; // already in playlist
+    if (tracks.some((t) => t.spotifyTrackId === track.id)) return; // already in playlist
 
     const payload = {
       spotify_track_id: track.id,
@@ -187,22 +198,42 @@ export default function PlaylistsPage() {
     if (res.ok) {
       const newTrack = await res.json();
       setTracks((prev) => [...prev, newTrack]);
+      // Clear search after adding so the dropdown doesn't linger
+      setSearchQuery('');
+      setSearchResults([]);
     }
   };
 
   const removeTrack = async (trackId: string) => {
     if (!activeId) return;
-    await fetch(`/api/spotify/playlists/${activeId}/tracks?track_id=${trackId}`, { method: 'DELETE' });
+    setRemoveError(null);
+
+    // Optimistic removal — snapshot previous state to roll back on failure
+    const snapshot = tracks;
     setTracks((prev) => prev.filter((t) => t.id !== trackId));
+
+    const res = await fetch(`/api/spotify/playlists/${activeId}/tracks?track_id=${trackId}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      // Restore snapshot on failure and surface the error
+      setTracks(snapshot);
+      setRemoveError('Could not remove track. Please try again.');
+    }
   };
 
   const exportToSpotify = async () => {
     if (!activeId) return;
     setExporting(true);
+    setExportError(null);
     const res = await fetch(`/api/spotify/playlists/${activeId}/export`, { method: 'POST' });
     const data = await res.json();
-    if (res.ok) setExportUrl(data.spotify_url);
-    else alert(data.error ?? 'Export failed');
+    if (res.ok) {
+      setExportUrl(data.spotify_url);
+    } else {
+      setExportError(data.error ?? 'Export failed. Please try again.');
+    }
     setExporting(false);
   };
 
@@ -218,17 +249,15 @@ export default function PlaylistsPage() {
 
       <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
-        <div
-          className="flex items-end justify-between mb-10"
-          style={{ animation: 'fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both' }}
-        >
+        <div className="flex items-end justify-between mb-10 animate-fade-up">
           <div>
-            <p className="text-[10px] font-bold tracking-[0.3em] text-[#1DB954]/50 uppercase mb-2">Your Library</p>
+            <p className="text-[10px] font-bold tracking-[0.3em] text-[#FF5500]/50 uppercase mb-2">Your Library</p>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-[#FFFFFF]">Playlists.</h1>
           </div>
           <button
+            type="button"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#1DB954] text-[#121212] font-semibold text-sm rounded-full hover:bg-[#1ed760] transition-colors active:scale-[0.98]"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#FF5500] text-[#121212] font-semibold text-sm rounded-full hover:bg-[#FF6820] transition-colors active:scale-[0.98]"
           >
             <Plus size={15} strokeWidth={2.5} />
             New playlist
@@ -247,8 +276,9 @@ export default function PlaylistsPage() {
                 <ListMusic size={28} className="text-[#B3B3B3]/20 mb-3" strokeWidth={1.5} />
                 <p className="text-sm text-[#B3B3B3]/40">No playlists yet.</p>
                 <button
+                  type="button"
                   onClick={() => setShowCreate(true)}
-                  className="text-xs text-[#1DB954]/60 hover:text-[#1DB954] mt-2 transition-colors"
+                  className="text-xs text-[#FF5500]/60 hover:text-[#FF5500] mt-2 transition-colors"
                 >
                   Create your first →
                 </button>
@@ -257,10 +287,11 @@ export default function PlaylistsPage() {
               playlists.map((pl) => (
                 <button
                   key={pl.id}
+                  type="button"
                   onClick={() => setActiveId(pl.id)}
                   className={`w-full text-left px-4 py-3.5 rounded-2xl transition-all duration-200 ${
                     activeId === pl.id
-                      ? 'bg-[#1DB954]/10 border border-[#1DB954]/25'
+                      ? 'bg-[#FF5500]/10 border border-[#FF5500]/25'
                       : 'hover:bg-[#181818] border border-transparent'
                   }`}
                 >
@@ -294,16 +325,17 @@ export default function PlaylistsPage() {
                       href={exportUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#1DB954] text-white text-sm font-semibold rounded-full hover:bg-[#1ed760] transition-colors"
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FF5500] text-white text-sm font-semibold rounded-full hover:bg-[#FF6820] transition-colors"
                     >
                       <ExternalLink size={13} />
                       Open in Spotify
                     </a>
                   ) : (
                     <button
+                      type="button"
                       onClick={exportToSpotify}
                       disabled={exporting || tracks.length === 0}
-                      className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#1DB954]/90 text-white text-sm font-semibold rounded-full hover:bg-[#1DB954] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FF5500]/90 text-white text-sm font-semibold rounded-full hover:bg-[#FF5500] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {exporting ? <Loader2 size={13} className="animate-spin" /> : (
                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
@@ -315,10 +347,21 @@ export default function PlaylistsPage() {
                   )}
                 </div>
 
+                {/* Inline export error */}
+                {exportError && (
+                  <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-red-500/8 border border-red-500/20 rounded-xl text-sm text-red-400">
+                    <AlertCircle size={14} className="shrink-0" />
+                    {exportError}
+                  </div>
+                )}
+
                 {/* Track search */}
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1DB954]/40 pointer-events-none">
-                    {searching ? <Loader2 size={15} strokeWidth={1.5} className="animate-spin" /> : <Search size={15} strokeWidth={1.5} />}
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF5500]/40 pointer-events-none">
+                    {searching
+                      ? <Loader2 size={15} strokeWidth={1.5} className="animate-spin" />
+                      : <Search size={15} strokeWidth={1.5} />
+                    }
                   </div>
                   <input
                     ref={searchRef}
@@ -326,24 +369,33 @@ export default function PlaylistsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search tracks to add…"
-                    className="w-full bg-[#121212] border border-[#282828] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#1DB954]/35 transition-colors"
+                    className="w-full bg-[#121212] border border-[#282828] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#FFFFFF] placeholder:text-[#B3B3B3]/30 focus:outline-none focus:border-[#FF5500]/35 transition-colors"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchQuery(''); setSearchResults([]); searchRef.current?.focus(); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B3B3B3]/40 hover:text-[#B3B3B3] transition-colors text-lg leading-none"
+                      aria-label="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
 
                 {/* Search results */}
                 {searchResults.length > 0 && (
                   <div className="mt-2 max-h-56 overflow-y-auto space-y-0.5 rounded-xl border border-[#282828] bg-[#121212] p-1">
                     {searchResults.map((track) => {
-                      const alreadyAdded = tracks.some((t) => t.spotify_track_id === track.id);
+                      const alreadyAdded = tracks.some((t) => t.spotifyTrackId === track.id);
                       return (
                         <button
+                          type="button"
                           key={track.id}
                           onClick={() => !alreadyAdded && addTrack(track)}
                           disabled={alreadyAdded}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                            alreadyAdded
-                              ? 'opacity-40 cursor-not-allowed'
-                              : 'hover:bg-[#181818]'
+                            alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#181818]'
                           }`}
                         >
                           <div className="w-8 h-8 rounded-md overflow-hidden bg-[#282828] shrink-0">
@@ -356,9 +408,9 @@ export default function PlaylistsPage() {
                             <p className="text-[10px] text-[#B3B3B3]/45 truncate">{track.artists.map((a) => a.name).join(', ')}</p>
                           </div>
                           {alreadyAdded ? (
-                            <span className="text-[10px] text-[#1DB954]/40 shrink-0">Added</span>
+                            <span className="text-[10px] text-[#FF5500]/40 shrink-0">Added</span>
                           ) : (
-                            <Plus size={14} className="text-[#1DB954]/50 shrink-0" strokeWidth={2} />
+                            <Plus size={14} className="text-[#FF5500]/50 shrink-0" strokeWidth={2} />
                           )}
                         </button>
                       );
@@ -366,6 +418,22 @@ export default function PlaylistsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Inline remove error */}
+              {removeError && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/8 border border-red-500/20 rounded-xl text-sm text-red-400">
+                  <AlertCircle size={14} className="shrink-0" />
+                  {removeError}
+                  <button
+                    type="button"
+                    onClick={() => setRemoveError(null)}
+                    className="ml-auto text-red-400/60 hover:text-red-400 transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
               {/* Playlist tracks */}
               <div className="bg-[#181818] border border-[#282828] rounded-3xl overflow-hidden">
@@ -391,25 +459,25 @@ export default function PlaylistsPage() {
                     {tracks.map((track, i) => (
                       <div
                         key={track.id}
-                        className="flex items-center gap-3 px-5 py-3 hover:bg-[#242424] transition-colors group"
-                        style={{ animation: `fade-up 0.3s cubic-bezier(0.16,1,0.3,1) ${i * 25}ms both` }}
+                        className={`flex items-center gap-3 px-5 py-3 hover:bg-[#242424] transition-colors group stagger-${Math.min(i, 20)}`}
                       >
                         <span className="text-xs font-mono text-[#B3B3B3]/25 w-5 text-right shrink-0">
                           {i + 1}
                         </span>
                         <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#282828] shrink-0">
-                          {track.album_image_url && (
-                            <img src={track.album_image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          {track.albumImageUrl && (
+                            <img src={track.albumImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#FFFFFF]/85 truncate leading-tight">{track.track_name}</p>
-                          <p className="text-xs text-[#B3B3B3]/45 truncate mt-0.5">{track.artist_name}</p>
+                          <p className="text-sm font-medium text-[#FFFFFF]/85 truncate leading-tight">{track.trackName}</p>
+                          <p className="text-xs text-[#B3B3B3]/45 truncate mt-0.5">{track.artistName}</p>
                         </div>
                         <span className="text-xs font-mono text-[#B3B3B3]/30 shrink-0 tabular-nums">
-                          {formatDuration(track.duration_ms)}
+                          {track.durationMs ? formatDuration(track.durationMs) : '—'}
                         </span>
                         <button
+                          type="button"
                           onClick={() => removeTrack(track.id)}
                           className="p-1.5 text-[#B3B3B3]/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-150 active:scale-90"
                           aria-label="Remove track"

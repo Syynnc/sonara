@@ -1,21 +1,13 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { TrackCard } from '@/app/components/TrackCard';
 import { SearchArtistCard } from '@/app/components/SearchArtistCard';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import type { SpotifyTrack, SpotifyArtist, SpotifySearchResult } from '@/lib/spotify/types';
 
 const GENRE_CHIPS = ['Hip-Hop', 'Indie', 'Jazz', 'Electronic', 'R&B', 'Alternative', 'Soul', 'Neo-Soul', 'Ambient', 'Pop'];
-
-function useDebounce(value: string, delay: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
@@ -56,12 +48,10 @@ export default function SearchPage() {
   return (
     <div className="min-h-[100dvh] bg-[#121212] pt-28 pb-20 px-6">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
-        <div
-          className="mb-10"
-          style={{ animation: 'fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both' }}
-        >
-          <p className="text-[10px] font-bold tracking-[0.3em] text-[#1DB954]/50 uppercase mb-3">
+        <div className="mb-10 animate-fade-up">
+          <p className="text-[10px] font-bold tracking-[0.3em] text-[#FF5500]/50 uppercase mb-3">
             Discover
           </p>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-[#FFFFFF]">
@@ -70,17 +60,13 @@ export default function SearchPage() {
         </div>
 
         {/* Search Input */}
-        <div
-          className="mb-8 max-w-2xl"
-          style={{ animation: 'fade-up 0.5s cubic-bezier(0.16,1,0.3,1) 0.08s both' }}
-        >
+        <div className="mb-8 max-w-2xl animate-fade-up-delay-1">
           <div className="relative">
-            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1DB954]/50 pointer-events-none">
-              {loading ? (
-                <Loader2 size={18} strokeWidth={1.5} className="animate-spin" />
-              ) : (
-                <Search size={18} strokeWidth={1.5} />
-              )}
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#FF5500]/50 pointer-events-none">
+              {loading
+                ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" />
+                : <Search size={18} strokeWidth={1.5} />
+              }
             </div>
             <input
               ref={inputRef}
@@ -89,13 +75,15 @@ export default function SearchPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Artists, tracks, genres…"
               autoFocus
-              className="w-full bg-[#181818] border border-[#282828] rounded-2xl py-4 pl-13 pr-6 text-[#FFFFFF] placeholder:text-[#B3B3B3]/35 focus:outline-none focus:border-[#1DB954]/40 transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.4)] text-[15px]"
-              style={{ paddingLeft: '3.25rem' }}
+              /* pl-search = padding-left: 3.25rem, defined in globals.css */
+              className="pl-search w-full bg-[#181818] border border-[#282828] rounded-2xl py-4 pr-6 text-[#FFFFFF] placeholder:text-[#B3B3B3]/35 focus:outline-none focus:border-[#FF5500]/40 transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.4)] text-[15px]"
             />
             {query && (
               <button
+                type="button"
                 onClick={() => { setQuery(''); setResults(null); inputRef.current?.focus(); }}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B3B3B3]/40 hover:text-[#B3B3B3] transition-colors text-lg leading-none"
+                aria-label="Clear search"
               >
                 ×
               </button>
@@ -107,9 +95,10 @@ export default function SearchPage() {
             <div className="flex flex-wrap gap-2 mt-4">
               {GENRE_CHIPS.map((g) => (
                 <button
+                  type="button"
                   key={g}
                   onClick={() => setQuery(g)}
-                  className="px-3 py-1.5 text-xs font-medium text-[#B3B3B3]/60 bg-[#181818] border border-[#282828] rounded-full hover:border-[#1DB954]/35 hover:text-[#1DB954] transition-all duration-200"
+                  className="px-3 py-1.5 text-xs font-medium text-[#B3B3B3]/60 bg-[#181818] border border-[#282828] rounded-full hover:border-[#FF5500]/35 hover:text-[#FF5500] transition-all duration-200"
                 >
                   {g}
                 </button>
@@ -128,11 +117,12 @@ export default function SearchPage() {
         {/* Results */}
         {hasResults && (
           <div className="space-y-12">
+
             {/* Tracks */}
             {tracks.length > 0 && (
-              <section style={{ animation: 'fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both' }}>
+              <section className="animate-fade-up-results">
                 <div className="flex items-center gap-4 mb-4">
-                  <p className="text-[10px] font-bold tracking-[0.3em] text-[#1DB954]/55 uppercase whitespace-nowrap">
+                  <p className="text-[10px] font-bold tracking-[0.3em] text-[#FF5500]/55 uppercase whitespace-nowrap">
                     Tracks
                   </p>
                   <div className="flex-1 h-px bg-[#282828]" />
@@ -140,10 +130,7 @@ export default function SearchPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5">
                   {tracks.map((track: SpotifyTrack, i) => (
-                    <div
-                      key={track.id}
-                      style={{ animation: `fade-up 0.35s cubic-bezier(0.16,1,0.3,1) ${i * 30}ms both` }}
-                    >
+                    <div key={track.id} className={`stagger-30-${Math.min(i, 9)}`}>
                       <TrackCard track={track} />
                     </div>
                   ))}
@@ -153,9 +140,9 @@ export default function SearchPage() {
 
             {/* Artists */}
             {artists.length > 0 && (
-              <section style={{ animation: 'fade-up 0.4s cubic-bezier(0.16,1,0.3,1) 0.1s both' }}>
+              <section className="animate-fade-up-results-delay">
                 <div className="flex items-center gap-4 mb-4">
-                  <p className="text-[10px] font-bold tracking-[0.3em] text-[#1DB954]/55 uppercase whitespace-nowrap">
+                  <p className="text-[10px] font-bold tracking-[0.3em] text-[#FF5500]/55 uppercase whitespace-nowrap">
                     Artists
                   </p>
                   <div className="flex-1 h-px bg-[#282828]" />
@@ -163,16 +150,14 @@ export default function SearchPage() {
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                   {artists.map((artist: SpotifyArtist, i) => (
-                    <div
-                      key={artist.id}
-                      style={{ animation: `fade-up 0.35s cubic-bezier(0.16,1,0.3,1) ${i * 25}ms both` }}
-                    >
+                    <div key={artist.id} className={`stagger-${Math.min(i, 20)}`}>
                       <SearchArtistCard artist={artist} />
                     </div>
                   ))}
                 </div>
               </section>
             )}
+
           </div>
         )}
 
@@ -193,6 +178,7 @@ export default function SearchPage() {
             </p>
           </div>
         )}
+
       </div>
     </div>
   );

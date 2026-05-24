@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { playlists, playlistTracks } from '@/lib/db/schema';
 import { createClient } from '@/lib/supabase/server';
+import { count, eq, desc } from 'drizzle-orm';
+import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/spotify/playlists — list the user's playlists from Supabase
 export async function GET() {
@@ -8,14 +11,28 @@ export async function GET() {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from('playlists')
-    .select('*, playlist_tracks(count)')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false });
+  try {
+    const data = await db
+      .select({
+        id: playlists.id,
+        userId: playlists.userId,
+        name: playlists.name,
+        description: playlists.description,
+        spotifyPlaylistId: playlists.spotifyPlaylistId,
+        createdAt: playlists.createdAt,
+        updatedAt: playlists.updatedAt,
+        trackCount: count(playlistTracks.id),
+      })
+      .from(playlists)
+      .leftJoin(playlistTracks, eq(playlists.id, playlistTracks.playlistId))
+      .where(eq(playlists.userId, user.id))
+      .groupBy(playlists.id)
+      .orderBy(desc(playlists.updatedAt));
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 // POST /api/spotify/playlists — create a new local playlist
@@ -32,12 +49,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('playlists')
-    .insert({ user_id: user.id, name: name.trim(), description })
-    .select()
-    .single();
+  try {
+    const data = await db
+      .insert(playlists)
+      .values({ userId: user.id, name: name.trim(), description })
+      .returning();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(data[0], { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

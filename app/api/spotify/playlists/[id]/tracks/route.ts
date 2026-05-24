@@ -1,6 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { LocalPlaylistTrack } from '@/lib/spotify/types';
+import { db } from '@/lib/db';
+import { playlists, playlistTracks } from '@/lib/db/schema';
+import { eq, and, asc } from 'drizzle-orm';
+
+// GET /api/spotify/playlists/[id]/tracks — list tracks (ownership verified server-side)
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: playlistId } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Verify ownership before returning any data
+  const [playlist] = await db
+    .select({ id: playlists.id })
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.userId, user.id)))
+    .limit(1);
+
+  if (!playlist) return NextResponse.json({ error: 'Playlist not found' }, { status: 404 });
+
+  const tracks = await db
+    .select()
+    .from(playlistTracks)
+    .where(eq(playlistTracks.playlistId, playlistId))
+    .orderBy(asc(playlistTracks.addedAt));
+
+  return NextResponse.json(tracks);
+}
 
 // POST /api/spotify/playlists/[id]/tracks — add a track to a local playlist
 export async function POST(
@@ -13,37 +44,48 @@ export async function POST(
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Verify playlist belongs to the user
-  const { data: playlist } = await supabase
-    .from('playlists')
-    .select('id')
-    .eq('id', playlistId)
-    .eq('user_id', user.id)
-    .single();
+  // Verify ownership via Drizzle (consistent with GET)
+  const [playlist] = await db
+    .select({ id: playlists.id })
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.userId, user.id)))
+    .limit(1);
 
   if (!playlist) return NextResponse.json({ error: 'Playlist not found' }, { status: 404 });
 
-  const track = (await request.json()) as Omit<LocalPlaylistTrack, 'id' | 'playlist_id' | 'added_at'>;
+  const body = (await request.json()) as {
+    spotify_track_id: string;
+    track_name?: string;
+    artist_name?: string;
+    album_name?: string;
+    album_image_url?: string;
+    duration_ms?: number;
+    spotify_uri?: string;
+  };
 
-  // Get current max position
-  const { data: lastTrack } = await supabase
-    .from('playlist_tracks')
-    .select('position')
-    .eq('playlist_id', playlistId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  if (!body.spotify_track_id) {
+    return NextResponse.json({ error: 'spotify_track_id required' }, { status: 400 });
+  }
 
-  const position = (lastTrack?.position ?? -1) + 1;
+  try {
+    const [inserted] = await db
+      .insert(playlistTracks)
+      .values({
+        playlistId,
+        spotifyTrackId: body.spotify_track_id,
+        trackName:      body.track_name      ?? null,
+        artistName:     body.artist_name     ?? null,
+        albumName:      body.album_name      ?? null,
+        albumImageUrl:  body.album_image_url ?? null,
+        durationMs:     body.duration_ms     ?? null,
+        spotifyUri:     body.spotify_uri     ?? null,
+      })
+      .returning();
 
-  const { data, error } = await supabase
-    .from('playlist_tracks')
-    .insert({ ...track, playlist_id: playlistId, position })
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(inserted, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 // DELETE /api/spotify/playlists/[id]/tracks?track_id=... — remove a track
