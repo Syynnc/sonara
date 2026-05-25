@@ -4,6 +4,7 @@ import {
   createSpotifyPlaylist,
   addTracksToSpotifyPlaylist,
   refreshSpotifyToken,
+  getSpotifyCurrentUser,
 } from '@/lib/spotify/api';
 
 // POST /api/spotify/playlists/[id]/export — push local playlist to Spotify
@@ -24,22 +25,25 @@ export async function POST(
     .single();
 
   if (!profile?.spotify_access_token) {
-    return NextResponse.json({ error: 'No Spotify token — please sign in again' }, { status: 401 });
+    return NextResponse.json({ error: 'No Spotify token — please reconnect Spotify.' }, { status: 401 });
   }
 
   // Refresh token if expired or expiring within 60 seconds
   let accessToken = profile.spotify_access_token;
-  const expiresAt = profile.spotify_token_expires_at ? new Date(profile.spotify_token_expires_at).getTime() : 0;
+  const expiresAt = profile.spotify_token_expires_at
+    ? new Date(profile.spotify_token_expires_at).getTime()
+    : 0;
+
   if (Date.now() >= expiresAt - 60_000 && profile.spotify_refresh_token) {
     try {
       const refreshed = await refreshSpotifyToken(profile.spotify_refresh_token);
       accessToken = refreshed.access_token;
       await supabase.from('profiles').update({
-        spotify_access_token: accessToken,
+        spotify_access_token:     accessToken,
         spotify_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
       }).eq('id', user.id);
     } catch {
-      return NextResponse.json({ error: 'Spotify token expired — please sign in again' }, { status: 401 });
+      return NextResponse.json({ error: 'Spotify token expired — please sign in again.' }, { status: 401 });
     }
   }
 
@@ -60,27 +64,15 @@ export async function POST(
   }
 
   try {
-    // Verify token and log scopes via /me endpoint
-    const { httpsFetch } = await import('@/lib/supabase/https-fetch');
-    const meRes = await httpsFetch('https://api.spotify.com/v1/me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const meData = await meRes.json() as Record<string, unknown>;
-    console.log('[export] /me status:', meRes.status);
-    console.log('[export] spotify user id:', meData.id);
-    console.log('[export] product (premium?):', meData.product);
-    if (!meRes.ok) {
-      return NextResponse.json({ error: `Spotify /me failed: ${meRes.status}` }, { status: 401 });
-    }
+    const { id: spotifyUserId } = await getSpotifyCurrentUser(accessToken);
 
-    // Create playlist on Spotify via /me/playlists (no user-id lookup needed)
     const spotifyPlaylist = await createSpotifyPlaylist(
       accessToken,
+      spotifyUserId,
       playlist.name,
-      playlist.description ?? `Exported from Sonara`,
+      playlist.description ?? 'Exported from Sonara',
     );
 
-    // Add tracks ordered by insertion time
     const uris = (playlist.playlist_tracks as { spotify_uri: string | null; added_at: string }[])
       .sort((a, b) => new Date(a.added_at).getTime() - new Date(b.added_at).getTime())
       .map((t) => t.spotify_uri)
@@ -88,7 +80,6 @@ export async function POST(
 
     await addTracksToSpotifyPlaylist(accessToken, spotifyPlaylist.id, uris);
 
-    // Store the Spotify playlist ID in our DB
     await supabase
       .from('playlists')
       .update({ spotify_playlist_id: spotifyPlaylist.id })
@@ -96,13 +87,20 @@ export async function POST(
 
     return NextResponse.json({
       spotify_playlist_id: spotifyPlaylist.id,
-      spotify_url: spotifyPlaylist.external_urls.spotify,
+      spotify_url:         spotifyPlaylist.external_urls.spotify,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[export] caught error:', message);
+    console.error('[export] error:', message);
+
     if (message === 'SPOTIFY_UNAUTHORIZED') {
-      return NextResponse.json({ error: 'Spotify token expired — please sign in again' }, { status: 401 });
+      return NextResponse.json({ error: 'Spotify token expired — please sign in again.' }, { status: 401 });
+    }
+    if (message.includes('403')) {
+      return NextResponse.json(
+        { error: 'missing_scopes', message: 'Playlist permissions missing. Please reconnect Spotify.' },
+        { status: 403 },
+      );
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -237,7 +237,11 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
 
   const [ready, setReady]       = useState(false);
   const [state, setState]       = useState<SpotifyPlayerState | null>(null);
-  const [volume, setVolume]     = useState(0.6);
+  const [volume, setVolume]     = useState(() => {
+    if (typeof window === 'undefined') return 0.6;
+    const saved = parseFloat(localStorage.getItem('sonara_volume') ?? '');
+    return Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 1) : 0.6;
+  });
   const [muted, setMuted]       = useState(false);
   const [position, setPosition] = useState(0);
   const [error, setError]       = useState<string | null>(null);
@@ -345,6 +349,7 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
   const handleVolume = async (v: number) => {
     setVolume(v);
     setMuted(v === 0);
+    localStorage.setItem('sonara_volume', String(v));
     await playerRef.current?.setVolume(v);
   };
   const toggleMute = async () => {

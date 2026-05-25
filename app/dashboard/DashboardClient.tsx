@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { SpotifyWebPlayer } from '@/app/components/SpotifyWebPlayer';
 import type { PlayerControls, NowPlayingInfo } from '@/app/components/SpotifyWebPlayer';
 import { TasteDNACard } from '@/app/components/TasteDNACard';
@@ -422,6 +423,8 @@ function computePlaylistHealth(features: RawAudioFeature[]) {
 export function DashboardClient({
   firstName, topTracks, topArtists, accessToken, spotifyError,
 }: DashboardClientProps) {
+
+
   const [tab, setTab]               = useState<Tab>('overview');
   const [playingUri, setPlayingUri] = useState<string | null>(null);
   const [rightOpen, setRightOpen]   = useState(true);
@@ -478,9 +481,6 @@ export function DashboardClient({
   const [plSearch, setPlSearch]                 = useState('');
   const [plResults, setPlResults]               = useState<SpotifyTrack[]>([]);
   const [plSearching, setPlSearching]           = useState(false);
-  const [exporting, setExporting]               = useState(false);
-  const [exportUrl, setExportUrl]               = useState<string | null>(null);
-  const [exportError, setExportError]           = useState<string | null>(null);
   const [removeError, setRemoveError]           = useState<string | null>(null);
   const debouncedPlSearch = useDebounce(plSearch, 380);
 
@@ -503,7 +503,7 @@ export function DashboardClient({
   useEffect(() => { fetchPlaylists(); }, [fetchPlaylists]);
 
   useEffect(() => {
-    if (activeId) { setExportUrl(null); setExportError(null); setPlaylistHealth(null); fetchTracks(activeId); }
+    if (activeId) { setPlaylistHealth(null); fetchTracks(activeId); }
   }, [activeId, fetchTracks]);
 
   useEffect(() => {
@@ -569,18 +569,23 @@ export function DashboardClient({
     }
   };
 
-  const exportToSpotify = async () => {
-    if (!activeId) return;
-    setExporting(true); setExportError(null);
-    const r = await fetch(`/api/spotify/playlists/${activeId}/export`, { method: 'POST' });
-    const d = await r.json();
-    if (r.ok) {
-      setExportUrl(d.spotify_url);
-    } else {
-      // 403 = missing playlist scopes → guide user to re-auth
-      setExportError(r.status === 403 ? '__reconnect__' : (d.error ?? 'Export failed.'));
-    }
-    setExporting(false);
+  const downloadAsCSV = () => {
+    if (!activePlaylist || !tracks.length) return;
+    const header = ['Track', 'Artist', 'Album', 'Duration'];
+    const rows = tracks.map((t) => [
+      t.trackName   ?? '',
+      t.artistName  ?? '',
+      t.albumName   ?? '',
+      t.durationMs  ? formatDuration(t.durationMs) : '',
+    ].map((v) => `"${v.replace(/"/g, '""')}"`).join(','));
+    const csv  = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${activePlaylist.name}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── Taste DNA effect ──────────────────────────────────────────────────────
@@ -1186,7 +1191,7 @@ export function DashboardClient({
                     ? Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className="h-14 bg-white/[0.02] border border-white/[0.05] rounded-2xl animate-pulse" />
                       ))
-                    : playlists.length === 0
+                    : playlists.length === 0 && !showCreate
                       ? (
                         <div className="py-12 text-center">
                           <IcoList />
@@ -1262,61 +1267,23 @@ export function DashboardClient({
                             )}
                           </div>
 
-                          {exportUrl ? (
-                            <a
-                              href={exportUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500] text-white text-xs font-semibold rounded-full hover:bg-[#FF6820] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            >
-                              Open in Spotify
-                              <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
-                                <IcoExternal />
-                              </span>
-                            </a>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={exportToSpotify}
-                              disabled={exporting || tracks.length === 0}
-                              className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500]/90 text-white text-xs font-semibold rounded-full hover:bg-[#FF5500] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            >
-                              {exporting ? 'Exporting…' : 'Export to Spotify'}
-                              <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
-                                {exporting
-                                  ? <IcoLoader />
-                                  : (
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                                    </svg>
-                                  )
-                                }
-                              </span>
-                            </button>
-                          )}
-                        </div>
-
-                        {exportError && exportError !== '__reconnect__' && (
-                          <div className="mb-4 flex items-center gap-2 px-3.5 py-2.5 bg-red-500/[0.06] border border-red-500/15 rounded-2xl text-xs text-red-400">
-                            <IcoAlert />{exportError}
-                          </div>
-                        )}
-                        {exportError === '__reconnect__' && (
-                          <div className="mb-4 px-3.5 py-3 bg-[#FF5500]/[0.06] border border-[#FF5500]/20 rounded-2xl">
-                            <p className="text-xs text-[#FF5500]/80 mb-2 leading-relaxed">
-                              Sonara needs permission to create playlists on your Spotify account. Re-authorize to continue.
-                            </p>
-                            <a
-                              href="/api/auth/signout?reconnect=true"
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#FF5500] hover:bg-[#FF6820] px-3 py-1.5 rounded-full transition-colors duration-300"
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                          {/* Export playlist as CSV */}
+                          <button
+                            type="button"
+                            onClick={downloadAsCSV}
+                            disabled={tracks.length === 0}
+                            className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500]/90 text-white text-xs font-semibold rounded-full hover:bg-[#FF5500] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                          >
+                            Export Playlist
+                            <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
-                              Reconnect Spotify
-                            </a>
-                          </div>
-                        )}
+                            </span>
+                          </button>
+                        </div>
 
                         {/* Track search to add */}
                         <SearchInput
