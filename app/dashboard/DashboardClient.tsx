@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { SpotifyWebPlayer } from '@/app/components/SpotifyWebPlayer';
 import type { PlayerControls, NowPlayingInfo } from '@/app/components/SpotifyWebPlayer';
 import { TasteDNACard } from '@/app/components/TasteDNACard';
@@ -88,15 +87,6 @@ function IcoTrash() {
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-    </svg>
-  );
-}
-function IcoExternal() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
   );
 }
@@ -438,7 +428,6 @@ export function DashboardClient({
 
   // ── Playlist health ────────────────────────────────────────────────────────
   const [playlistHealth, setPlaylistHealth] = useState<ReturnType<typeof computePlaylistHealth>>(null);
-  const [healthLoading, setHealthLoading]   = useState(false);
 
   // ── Search state ───────────────────────────────────────────────────────────
   const [query, setQuery]             = useState('');
@@ -622,15 +611,13 @@ export function DashboardClient({
     if (!tracks.length) { setPlaylistHealth(null); return; }
     const ids = tracks.map((t) => t.spotifyTrackId).filter(Boolean).slice(0, 50).join(',');
     if (!ids) return;
-    setHealthLoading(true);
     fetch(`/api/spotify/audio-features?ids=${ids}`)
       .then((r) => r.json())
       .then((d) => {
         const valid = (d.audio_features ?? []).filter(Boolean) as RawAudioFeature[];
         setPlaylistHealth(computePlaylistHealth(valid));
       })
-      .catch(() => {})
-      .finally(() => setHealthLoading(false));
+      .catch(() => {});
   }, [tracks]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -1442,7 +1429,7 @@ export function DashboardClient({
 
           {/* ── Stats ─────────────────────────────────────────────────────── */}
           {tab === 'stats' && (() => {
-            // ── Derived stats ──────────────────────────────────────────────
+            // ── All derived from topTracks + topArtists — no audio features API needed ──
             const totalMs      = topTracks.reduce((s, t) => s + t.duration_ms, 0);
             const totalMins    = Math.round(totalMs / 60000);
             const avgPop       = topTracks.length
@@ -1450,14 +1437,29 @@ export function DashboardClient({
               : 0;
             const uniqueGenres = new Set(topArtists.flatMap((a) => a.genres ?? [])).size;
             const topGenre     = genreData[0]?.name ?? '—';
+            const topArtistFollowers = topArtists[0]?.followers?.total ?? 0;
+            const fmtFollowers = topArtistFollowers >= 1_000_000
+              ? `${(topArtistFollowers / 1_000_000).toFixed(1)}M`
+              : topArtistFollowers >= 1_000
+                ? `${(topArtistFollowers / 1_000).toFixed(0)}K`
+                : String(topArtistFollowers);
 
-            const featureLabels: { key: keyof AudioFeatureSet; label: string; color: string; desc: string }[] = [
-              { key: 'energy',           label: 'Energy',           color: '#FF5500', desc: 'How intense and active your music is' },
-              { key: 'danceability',     label: 'Danceability',     color: '#FF8C00', desc: 'How suitable your tracks are for dancing' },
-              { key: 'valence',          label: 'Positivity',       color: '#FFB800', desc: 'Musical positiveness — happy vs. sad' },
-              { key: 'acousticness',     label: 'Acousticness',     color: '#22C55E', desc: 'Confidence the track is acoustic' },
-              { key: 'instrumentalness', label: 'Instrumentalness', color: '#3B82F6', desc: 'Likelihood of no vocals' },
-              { key: 'speechiness',      label: 'Speechiness',      color: '#A855F7', desc: 'Presence of spoken words' },
+            // Genre-based mood/style inference
+            const allGenres = topArtists.flatMap((a) => a.genres ?? []).join(' ').toLowerCase();
+            const isEnergetic = /edm|electronic|metal|punk|hip.?hop|trap|drum|bass|techno|dance/.test(allGenres);
+            const isAcoustic  = /acoustic|folk|singer.?songwriter|country|bluegrass|classical/.test(allGenres);
+            const isUpbeat    = /pop|funk|soul|r.?b|disco|reggae|latin/.test(allGenres);
+            const mood  = isUpbeat ? 'Upbeat' : isEnergetic ? 'Intense' : isAcoustic ? 'Mellow' : 'Balanced';
+            const moodEmoji = isUpbeat ? '😊' : isEnergetic ? '🔥' : isAcoustic ? '😌' : '😐';
+            const style = isEnergetic ? 'High Energy' : isAcoustic ? 'Acoustic' : isUpbeat ? 'Danceable' : 'Chill';
+            const styleEmoji = isEnergetic ? '⚡' : isAcoustic ? '🎸' : isUpbeat ? '💃' : '🌙';
+
+            // Popularity distribution buckets
+            const popBuckets = [
+              { label: 'Underground',  range: '0–39',   count: topTracks.filter((t) => (t.popularity ?? 0) < 40).length  },
+              { label: 'Rising',       range: '40–59',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 40 && p < 60; }).length },
+              { label: 'Mainstream',   range: '60–79',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 60 && p < 80; }).length },
+              { label: 'Charting',     range: '80–100', count: topTracks.filter((t) => (t.popularity ?? 0) >= 80).length  },
             ];
 
             return (
@@ -1477,10 +1479,10 @@ export function DashboardClient({
                 {/* KPI row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: 'Top Tracks',    value: String(topTracks.length),  sub: 'in your profile'       },
-                    { label: 'Total Runtime', value: `${totalMins}m`,           sub: 'of top-track audio'    },
-                    { label: 'Avg Popularity', value: `${avgPop}`,              sub: 'out of 100 on Spotify' },
-                    { label: 'Genre Range',   value: String(uniqueGenres),      sub: 'unique genres explored' },
+                    { label: 'Top Tracks',     value: String(topTracks.length),   sub: 'tracked this month'         },
+                    { label: 'Total Runtime',  value: `${totalMins}m`,            sub: 'of top-track audio'         },
+                    { label: 'Avg Popularity', value: `${avgPop}`,                sub: 'out of 100 on Spotify'      },
+                    { label: 'Genre Range',    value: String(uniqueGenres),       sub: 'unique genres explored'     },
                   ].map(({ label, value, sub }) => (
                     <div key={label} className="p-[1.5px] bg-white/[0.03] border border-white/[0.06] rounded-[1.5rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(1.5rem-1.5px)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
@@ -1492,32 +1494,30 @@ export function DashboardClient({
                   ))}
                 </div>
 
-                {/* Audio features */}
-                {dnaFeatures && (
+                {/* Taste summary */}
+                {topTracks.length > 0 && (
                   <section>
-                    <SectionHeader label="Audio Profile" meta="avg of top 20 tracks" />
-                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
-                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-5">
-                        {featureLabels.map(({ key, label, color, desc }) => {
-                          const pct = Math.round((dnaFeatures[key] ?? 0) * 100);
-                          return (
-                            <div key={key}>
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <span className="text-xs font-semibold text-white/70">{label}</span>
-                                  <span className="ml-2 text-[10px] text-white/25">{desc}</span>
-                                </div>
-                                <span className="text-xs font-mono tabular-nums" style={{ color }}>{pct}%</span>
+                    <SectionHeader label="Taste Profile" />
+                    <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] px-7 py-7">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          {[
+                            { label: 'Top Genre',      value: topGenre,    sub: 'Most-represented genre',          emoji: '🎵' },
+                            { label: 'Mood',           value: mood,        sub: 'Inferred from your genre mix',    emoji: moodEmoji },
+                            { label: 'Listening Style', value: style,      sub: 'Based on genre characteristics', emoji: styleEmoji },
+                            { label: 'Top Artist',     value: topArtists[0]?.name ?? '—',
+                              sub: topArtists[0] ? `${fmtFollowers} followers` : 'No data yet', emoji: '🎤' },
+                          ].map(({ label, value, sub, emoji }) => (
+                            <div key={label} className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-lg">{emoji}</span>
+                                <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
                               </div>
-                              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                  style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}55` }}
-                                />
-                              </div>
+                              <p className="text-lg font-bold text-white capitalize leading-tight truncate">{value}</p>
+                              <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -1530,7 +1530,7 @@ export function DashboardClient({
                     <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-3">
                         {genreData.map(({ name, pct }, i) => {
-                          const opacity = 1 - i * 0.13;
+                          const barOpacity = 1 - i * 0.13;
                           return (
                             <div key={name} className="flex items-center gap-4">
                               <span className="text-[9px] font-mono text-white/20 w-3 tabular-nums shrink-0">{i + 1}</span>
@@ -1542,7 +1542,7 @@ export function DashboardClient({
                                 <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
                                   <div
                                     className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                    style={{ width: `${Math.round(pct * 100)}%`, background: `rgba(255,85,0,${opacity})` }}
+                                    style={{ width: `${Math.round(pct * 100)}%`, background: `rgba(255,85,0,${barOpacity})` }}
                                   />
                                 </div>
                               </div>
@@ -1554,15 +1554,43 @@ export function DashboardClient({
                   </section>
                 )}
 
-                {/* Top track popularity breakdown */}
+                {/* Popularity distribution */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Popularity Spread" meta="how mainstream is your taste?" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {popBuckets.map(({ label, range, count }) => {
+                            const pct = topTracks.length ? Math.round((count / topTracks.length) * 100) : 0;
+                            return (
+                              <div key={label} className="flex flex-col gap-2">
+                                <div className="h-16 bg-white/[0.04] rounded-xl overflow-hidden flex items-end">
+                                  <div
+                                    className="w-full bg-[#FF5500]/70 rounded-xl transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ height: `${Math.max(pct, 4)}%` }}
+                                  />
+                                </div>
+                                <p className="text-xs font-semibold text-white/70">{label}</p>
+                                <p className="text-[9px] text-white/25">{range} · {count} track{count !== 1 ? 's' : ''}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Top tracks by popularity */}
                 {topTracks.length > 0 && (
                   <section>
                     <SectionHeader label="Track Popularity" meta="Spotify score 0–100" />
                     <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
                         {topTracks.slice(0, 10).map((track) => {
-                          const pop  = track.popularity ?? 0;
-                          const img  = track.album.images[2]?.url ?? track.album.images[0]?.url;
+                          const pop = track.popularity ?? 0;
+                          const img = track.album.images[2]?.url ?? track.album.images[0]?.url;
                           return (
                             <div
                               key={track.id}
@@ -1579,7 +1607,7 @@ export function DashboardClient({
                                 <div className="mt-1.5 h-1 bg-white/[0.06] rounded-full overflow-hidden">
                                   <div
                                     className="h-full rounded-full bg-[#FF5500] transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                    style={{ width: `${pop}%`, opacity: 0.5 + pop / 200 }}
+                                    style={{ width: `${pop}%`, opacity: 0.4 + pop / 200 }}
                                   />
                                 </div>
                               </div>
@@ -1591,54 +1619,6 @@ export function DashboardClient({
                     </div>
                   </section>
                 )}
-
-                {/* Taste summary card */}
-                <section>
-                  <SectionHeader label="Taste Summary" />
-                  <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
-                    <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] px-7 py-7">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                          {
-                            label: 'Defining Genre',
-                            value: topGenre,
-                            sub:   'Your most-represented genre across top artists',
-                            emoji: '🎵',
-                          },
-                          {
-                            label: 'Listening Mood',
-                            value: dnaFeatures
-                              ? dnaFeatures.valence > 0.6 ? 'Upbeat' : dnaFeatures.valence > 0.4 ? 'Balanced' : 'Melancholic'
-                              : '—',
-                            sub:   'Derived from average valence of your top tracks',
-                            emoji: dnaFeatures
-                              ? dnaFeatures.valence > 0.6 ? '😊' : dnaFeatures.valence > 0.4 ? '😐' : '😔'
-                              : '🎧',
-                          },
-                          {
-                            label: 'Listening Style',
-                            value: dnaFeatures
-                              ? dnaFeatures.energy > 0.65 ? 'High Energy' : dnaFeatures.acousticness > 0.5 ? 'Acoustic' : 'Chill'
-                              : '—',
-                            sub:   'Derived from energy & acousticness scores',
-                            emoji: dnaFeatures
-                              ? dnaFeatures.energy > 0.65 ? '🔥' : dnaFeatures.acousticness > 0.5 ? '🎸' : '😌'
-                              : '🎧',
-                          },
-                        ].map(({ label, value, sub, emoji }) => (
-                          <div key={label} className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">{emoji}</span>
-                              <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
-                            </div>
-                            <p className="text-xl font-bold text-white capitalize leading-tight">{value}</p>
-                            <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </section>
 
                 {/* Empty state */}
                 {topTracks.length === 0 && topArtists.length === 0 && (
