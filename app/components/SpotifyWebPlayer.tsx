@@ -52,35 +52,27 @@ function formatMs(ms: number) {
 }
 
 // ── Waveform data ─────────────────────────────────────────────────────────────
-// Per-bar values are static — stored as CSSProperties objects set via
-// element.style in the WaveformBar component to avoid JSX style={}.
-const BAR_HEIGHTS   = [38, 62, 44, 80, 32, 72, 54, 90, 40, 68, 50, 84, 36, 74, 48, 88, 34, 66, 56, 78, 42, 70, 46, 82];
-const BAR_DURATIONS = [0.75, 1.05, 0.88, 1.25, 0.68, 1.12, 0.95, 1.35];
-const BAR_DELAYS    = [0, 0.28, 0.12, 0.44, 0.06, 0.38, 0.20, 0.52];
-
-// Pre-compute static CSS property objects once (not in JSX render path)
-const BAR_STYLES: CSSProperties[] = BAR_HEIGHTS.map((h, i) => ({
-  height:            `${h}%`,
-  animationDuration: `${BAR_DURATIONS[i % BAR_DURATIONS.length]}s`,
-  animationDelay:    `${BAR_DELAYS[i % BAR_DELAYS.length]}s`,
-  opacity:           0.18 + (h / 90) * 0.72,
-}));
-
-// WaveformBar writes its static style via DOM ref — no JSX style={} needed
-function WaveformBar({ index }: { index: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const s = BAR_STYLES[index];
-    el.style.height            = s.height as string;
-    el.style.animationDuration = s.animationDuration as string;
-    el.style.animationDelay    = s.animationDelay as string;
-    el.style.opacity           = String(s.opacity);
-  // Static values — only needs to run once
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return <div ref={ref} className="player-waveform-bar bg-[#FF5500] w-[2.5px]" />;
+// ── Vinyl record — spins while playing, pauses when stopped ──────────────────
+function VinylRecord({ albumArt, paused }: { albumArt: string | null; paused: boolean }) {
+  return (
+    <div className="relative flex items-center justify-center select-none">
+      <div className={`relative w-28 h-28 vinyl-disc ${paused ? '' : 'vinyl-playing'}`}>
+        <div className="vinyl-groove vinyl-groove-1" />
+        <div className="vinyl-groove vinyl-groove-2" />
+        <div className="vinyl-groove vinyl-groove-3" />
+        <div className="vinyl-groove vinyl-groove-4" />
+        <div className="vinyl-art">
+          {albumArt
+            ? <img src={albumArt} alt="" className="w-full h-full object-cover" />
+            : <div className="w-full h-full bg-[#FF5500]/30" />
+          }
+        </div>
+        <div className="vinyl-spindle" />
+        <div className="vinyl-sheen" />
+      </div>
+      {!paused && <div className="vinyl-pulse" />}
+    </div>
+  );
 }
 
 // ── Ultra-thin custom icons ───────────────────────────────────────────────────
@@ -237,7 +229,11 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
 
   const [ready, setReady]       = useState(false);
   const [state, setState]       = useState<SpotifyPlayerState | null>(null);
-  const [volume, setVolume]     = useState(0.6);
+  const [volume, setVolume]     = useState(() => {
+    if (typeof window === 'undefined') return 0.6;
+    const saved = parseFloat(localStorage.getItem('sonara_volume') ?? '');
+    return Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 1) : 0.6;
+  });
   const [muted, setMuted]       = useState(false);
   const [position, setPosition] = useState(0);
   const [error, setError]       = useState<string | null>(null);
@@ -345,6 +341,7 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
   const handleVolume = async (v: number) => {
     setVolume(v);
     setMuted(v === 0);
+    localStorage.setItem('sonara_volume', String(v));
     await playerRef.current?.setVolume(v);
   };
   const toggleMute = async () => {
@@ -424,39 +421,11 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
 
       {/* ── Player UI ──────────────────────────────────────────────────────── */}
       {ready && (
-        <div className="flex flex-col flex-1 px-5 py-5 gap-5">
+        <div className="flex flex-col flex-1 items-center px-5 py-20 gap-5">
 
-          {/* ── Album art — double-bezel ──────────────────────────────────── */}
-          <div className="flex justify-center">
-            {track ? (
-              <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.7)]">
-                <div className="relative w-[168px] h-[168px] rounded-[calc(1.75rem-0.5rem)] overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)]">
-                  <img
-                    src={track.album.images[0]?.url}
-                    alt={track.album.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Subtle playing shimmer overlay */}
-                  {!paused && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent pointer-events-none" />
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Empty state art */
-              <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[1.75rem]">
-                <div className="w-[168px] h-[168px] rounded-[calc(1.75rem-0.5rem)] bg-[#0C0C0C] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] flex items-center justify-center">
-                  <span className="text-4xl text-white/10 select-none">♪</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Waveform bars ─────────────────────────────────────────────── */}
-          <div className={`flex items-end justify-center gap-[2.5px] h-8 ${!paused ? 'player-playing' : ''}`}>
-            {BAR_HEIGHTS.map((_, i) => (
-              <WaveformBar key={i} index={i} />
-            ))}
+          {/* ── Vinyl record (replaces static album art) ──────────────────── */}
+          <div className="w-full flex justify-center items-center">
+            <VinylRecord albumArt={track?.album.images[0]?.url ?? null} paused={paused} />
           </div>
 
           {/* ── Track info ────────────────────────────────────────────────── */}
@@ -473,7 +442,7 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
           </div>
 
           {/* ── Progress ──────────────────────────────────────────────────── */}
-          <div className="space-y-2">
+          <div className="w-full space-y-2">
             <PlayerSlider
               min={0}
               max={duration || 100}
@@ -548,7 +517,7 @@ export function SpotifyWebPlayer({ accessToken: initialToken, trackUri, onColorC
           </div>
 
           {/* ── Volume ────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 pb-1">
+          <div className="w-full flex items-center gap-3 pb-1">
             {/* Mute toggle */}
             <button
               type="button"

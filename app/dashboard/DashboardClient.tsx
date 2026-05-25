@@ -14,7 +14,7 @@ import type {
 } from '@/lib/spotify/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'search' | 'playlists';
+type Tab = 'overview' | 'search' | 'playlists' | 'stats';
 
 interface DashboardClientProps {
   firstName: string;
@@ -64,14 +64,7 @@ function IcoChart() {
     </svg>
   );
 }
-function IcoSettings() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
+
 function IcoLogOut() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -94,15 +87,6 @@ function IcoTrash() {
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-    </svg>
-  );
-}
-function IcoExternal() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
   );
 }
@@ -136,7 +120,7 @@ const NAV: NavItem[] = [
   { id: 'overview',  icon: IcoGrid,  label: 'Overview'  },
   { id: 'search',    icon: IcoSearch, label: 'Search'   },
   { id: 'playlists', icon: IcoList,  label: 'Playlists' },
-  { id: 'stats',     icon: IcoChart, label: 'Stats', disabled: true },
+  { id: 'stats',     icon: IcoChart, label: 'Stats' },
 ];
 
 // ── Sidebar nav button (double-bezel when active, labelled) ──────────────────
@@ -422,6 +406,8 @@ function computePlaylistHealth(features: RawAudioFeature[]) {
 export function DashboardClient({
   firstName, topTracks, topArtists, accessToken, spotifyError,
 }: DashboardClientProps) {
+
+
   const [tab, setTab]               = useState<Tab>('overview');
   const [playingUri, setPlayingUri] = useState<string | null>(null);
   const [rightOpen, setRightOpen]   = useState(true);
@@ -442,7 +428,6 @@ export function DashboardClient({
 
   // ── Playlist health ────────────────────────────────────────────────────────
   const [playlistHealth, setPlaylistHealth] = useState<ReturnType<typeof computePlaylistHealth>>(null);
-  const [healthLoading, setHealthLoading]   = useState(false);
 
   // ── Search state ───────────────────────────────────────────────────────────
   const [query, setQuery]             = useState('');
@@ -478,9 +463,6 @@ export function DashboardClient({
   const [plSearch, setPlSearch]                 = useState('');
   const [plResults, setPlResults]               = useState<SpotifyTrack[]>([]);
   const [plSearching, setPlSearching]           = useState(false);
-  const [exporting, setExporting]               = useState(false);
-  const [exportUrl, setExportUrl]               = useState<string | null>(null);
-  const [exportError, setExportError]           = useState<string | null>(null);
   const [removeError, setRemoveError]           = useState<string | null>(null);
   const debouncedPlSearch = useDebounce(plSearch, 380);
 
@@ -503,7 +485,7 @@ export function DashboardClient({
   useEffect(() => { fetchPlaylists(); }, [fetchPlaylists]);
 
   useEffect(() => {
-    if (activeId) { setExportUrl(null); setExportError(null); setPlaylistHealth(null); fetchTracks(activeId); }
+    if (activeId) { setPlaylistHealth(null); fetchTracks(activeId); }
   }, [activeId, fetchTracks]);
 
   useEffect(() => {
@@ -569,18 +551,23 @@ export function DashboardClient({
     }
   };
 
-  const exportToSpotify = async () => {
-    if (!activeId) return;
-    setExporting(true); setExportError(null);
-    const r = await fetch(`/api/spotify/playlists/${activeId}/export`, { method: 'POST' });
-    const d = await r.json();
-    if (r.ok) {
-      setExportUrl(d.spotify_url);
-    } else {
-      // 403 = missing playlist scopes → guide user to re-auth
-      setExportError(r.status === 403 ? '__reconnect__' : (d.error ?? 'Export failed.'));
-    }
-    setExporting(false);
+  const downloadAsCSV = () => {
+    if (!activePlaylist || !tracks.length) return;
+    const header = ['Track', 'Artist', 'Album', 'Duration'];
+    const rows = tracks.map((t) => [
+      t.trackName   ?? '',
+      t.artistName  ?? '',
+      t.albumName   ?? '',
+      t.durationMs  ? formatDuration(t.durationMs) : '',
+    ].map((v) => `"${v.replace(/"/g, '""')}"`).join(','));
+    const csv  = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${activePlaylist.name}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── Taste DNA effect ──────────────────────────────────────────────────────
@@ -624,15 +611,13 @@ export function DashboardClient({
     if (!tracks.length) { setPlaylistHealth(null); return; }
     const ids = tracks.map((t) => t.spotifyTrackId).filter(Boolean).slice(0, 50).join(',');
     if (!ids) return;
-    setHealthLoading(true);
     fetch(`/api/spotify/audio-features?ids=${ids}`)
       .then((r) => r.json())
       .then((d) => {
         const valid = (d.audio_features ?? []).filter(Boolean) as RawAudioFeature[];
         setPlaylistHealth(computePlaylistHealth(valid));
       })
-      .catch(() => {})
-      .finally(() => setHealthLoading(false));
+      .catch(() => {});
   }, [tracks]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -725,19 +710,6 @@ export function DashboardClient({
           </span>
         </a>
 
-        {/* Settings */}
-        <button
-          type="button"
-          title="Settings"
-          className="flex flex-col items-center gap-1.5 py-1 w-full group"
-        >
-          <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white/20 group-hover:text-white/50 group-hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <IcoSettings />
-          </div>
-          <span className="text-[9px] font-medium tracking-wide text-white/15 group-hover:text-white/35 transition-colors duration-300">
-            Settings
-          </span>
-        </button>
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
@@ -759,7 +731,7 @@ export function DashboardClient({
 
           {/* Tab pills */}
           <div className="flex items-center gap-1 ml-auto">
-            {NAV.filter((n) => !n.disabled).map((n) => (
+            {NAV.map((n) => (
               <button
                 key={n.id}
                 type="button"
@@ -1186,7 +1158,7 @@ export function DashboardClient({
                     ? Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className="h-14 bg-white/[0.02] border border-white/[0.05] rounded-2xl animate-pulse" />
                       ))
-                    : playlists.length === 0
+                    : playlists.length === 0 && !showCreate
                       ? (
                         <div className="py-12 text-center">
                           <IcoList />
@@ -1262,61 +1234,23 @@ export function DashboardClient({
                             )}
                           </div>
 
-                          {exportUrl ? (
-                            <a
-                              href={exportUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500] text-white text-xs font-semibold rounded-full hover:bg-[#FF6820] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            >
-                              Open in Spotify
-                              <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
-                                <IcoExternal />
-                              </span>
-                            </a>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={exportToSpotify}
-                              disabled={exporting || tracks.length === 0}
-                              className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500]/90 text-white text-xs font-semibold rounded-full hover:bg-[#FF5500] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            >
-                              {exporting ? 'Exporting…' : 'Export to Spotify'}
-                              <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
-                                {exporting
-                                  ? <IcoLoader />
-                                  : (
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                                    </svg>
-                                  )
-                                }
-                              </span>
-                            </button>
-                          )}
-                        </div>
-
-                        {exportError && exportError !== '__reconnect__' && (
-                          <div className="mb-4 flex items-center gap-2 px-3.5 py-2.5 bg-red-500/[0.06] border border-red-500/15 rounded-2xl text-xs text-red-400">
-                            <IcoAlert />{exportError}
-                          </div>
-                        )}
-                        {exportError === '__reconnect__' && (
-                          <div className="mb-4 px-3.5 py-3 bg-[#FF5500]/[0.06] border border-[#FF5500]/20 rounded-2xl">
-                            <p className="text-xs text-[#FF5500]/80 mb-2 leading-relaxed">
-                              Sonara needs permission to create playlists on your Spotify account. Re-authorize to continue.
-                            </p>
-                            <a
-                              href="/api/auth/signout?reconnect=true"
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#FF5500] hover:bg-[#FF6820] px-3 py-1.5 rounded-full transition-colors duration-300"
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                          {/* Export playlist as CSV */}
+                          <button
+                            type="button"
+                            onClick={downloadAsCSV}
+                            disabled={tracks.length === 0}
+                            className="group shrink-0 flex items-center gap-0 pl-3.5 pr-1 py-1 bg-[#FF5500]/90 text-white text-xs font-semibold rounded-full hover:bg-[#FF5500] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                          >
+                            Export Playlist
+                            <span className="ml-2 w-6 h-6 rounded-full bg-black/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform duration-500">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
-                              Reconnect Spotify
-                            </a>
-                          </div>
-                        )}
+                            </span>
+                          </button>
+                        </div>
 
                         {/* Track search to add */}
                         <SearchInput
@@ -1492,6 +1426,212 @@ export function DashboardClient({
               </div>
             </div>
           )}
+
+          {/* ── Stats ─────────────────────────────────────────────────────── */}
+          {tab === 'stats' && (() => {
+            // ── All derived from topTracks + topArtists — no audio features API needed ──
+            const totalMs      = topTracks.reduce((s, t) => s + t.duration_ms, 0);
+            const totalMins    = Math.round(totalMs / 60000);
+            const avgPop       = topTracks.length
+              ? Math.round(topTracks.reduce((s, t) => s + (t.popularity ?? 0), 0) / topTracks.length)
+              : 0;
+            const uniqueGenres = new Set(topArtists.flatMap((a) => a.genres ?? [])).size;
+            const topGenre     = genreData[0]?.name ?? '—';
+            const topArtistFollowers = topArtists[0]?.followers?.total ?? 0;
+            const fmtFollowers = topArtistFollowers >= 1_000_000
+              ? `${(topArtistFollowers / 1_000_000).toFixed(1)}M`
+              : topArtistFollowers >= 1_000
+                ? `${(topArtistFollowers / 1_000).toFixed(0)}K`
+                : String(topArtistFollowers);
+
+            // Genre-based mood/style inference
+            const allGenres = topArtists.flatMap((a) => a.genres ?? []).join(' ').toLowerCase();
+            const isEnergetic = /edm|electronic|metal|punk|hip.?hop|trap|drum|bass|techno|dance/.test(allGenres);
+            const isAcoustic  = /acoustic|folk|singer.?songwriter|country|bluegrass|classical/.test(allGenres);
+            const isUpbeat    = /pop|funk|soul|r.?b|disco|reggae|latin/.test(allGenres);
+            const mood  = isUpbeat ? 'Upbeat' : isEnergetic ? 'Intense' : isAcoustic ? 'Mellow' : 'Balanced';
+            const moodEmoji = isUpbeat ? '😊' : isEnergetic ? '🔥' : isAcoustic ? '😌' : '😐';
+            const style = isEnergetic ? 'High Energy' : isAcoustic ? 'Acoustic' : isUpbeat ? 'Danceable' : 'Chill';
+            const styleEmoji = isEnergetic ? '⚡' : isAcoustic ? '🎸' : isUpbeat ? '💃' : '🌙';
+
+            // Popularity distribution buckets
+            const popBuckets = [
+              { label: 'Underground',  range: '0–39',   count: topTracks.filter((t) => (t.popularity ?? 0) < 40).length  },
+              { label: 'Rising',       range: '40–59',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 40 && p < 60; }).length },
+              { label: 'Mainstream',   range: '60–79',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 60 && p < 80; }).length },
+              { label: 'Charting',     range: '80–100', count: topTracks.filter((t) => (t.popularity ?? 0) >= 80).length  },
+            ];
+
+            return (
+              <div className="px-6 py-10 max-w-5xl space-y-10">
+
+                {/* Header */}
+                <div>
+                  <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full w-fit mb-3">
+                    <div className="px-3 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                      <span className="text-[9px] font-bold tracking-[0.28em] text-[#FF5500]/50 uppercase">Your Stats</span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white tracking-tight">Listening Report</h2>
+                  <p className="text-sm text-white/30 mt-1.5">Based on your top tracks &amp; artists.</p>
+                </div>
+
+                {/* KPI row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Top Tracks',     value: String(topTracks.length),   sub: 'tracked this month'         },
+                    { label: 'Total Runtime',  value: `${totalMins}m`,            sub: 'of top-track audio'         },
+                    { label: 'Avg Popularity', value: `${avgPop}`,                sub: 'out of 100 on Spotify'      },
+                    { label: 'Genre Range',    value: String(uniqueGenres),       sub: 'unique genres explored'     },
+                  ].map(({ label, value, sub }) => (
+                    <div key={label} className="p-[1.5px] bg-white/[0.03] border border-white/[0.06] rounded-[1.5rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(1.5rem-1.5px)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
+                        <p className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase mb-2">{label}</p>
+                        <p className="text-3xl font-bold text-white tabular-nums leading-none mb-1">{value}</p>
+                        <p className="text-[10px] text-white/25">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Taste summary */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Taste Profile" />
+                    <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] px-7 py-7">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          {[
+                            { label: 'Top Genre',      value: topGenre,    sub: 'Most-represented genre',          emoji: '🎵' },
+                            { label: 'Mood',           value: mood,        sub: 'Inferred from your genre mix',    emoji: moodEmoji },
+                            { label: 'Listening Style', value: style,      sub: 'Based on genre characteristics', emoji: styleEmoji },
+                            { label: 'Top Artist',     value: topArtists[0]?.name ?? '—',
+                              sub: topArtists[0] ? `${fmtFollowers} followers` : 'No data yet', emoji: '🎤' },
+                          ].map(({ label, value, sub, emoji }) => (
+                            <div key={label} className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-lg">{emoji}</span>
+                                <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
+                              </div>
+                              <p className="text-lg font-bold text-white capitalize leading-tight truncate">{value}</p>
+                              <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Genre breakdown */}
+                {genreData.length > 0 && (
+                  <section>
+                    <SectionHeader label="Top Genres" meta={`${uniqueGenres} total`} />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-3">
+                        {genreData.map(({ name, pct }, i) => {
+                          const barOpacity = 1 - i * 0.13;
+                          return (
+                            <div key={name} className="flex items-center gap-4">
+                              <span className="text-[9px] font-mono text-white/20 w-3 tabular-nums shrink-0">{i + 1}</span>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-xs font-medium text-white/70 capitalize">{name}</span>
+                                  <span className="text-[10px] font-mono text-white/30 tabular-nums">{Math.round(pct * 100)}%</span>
+                                </div>
+                                <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ width: `${Math.round(pct * 100)}%`, background: `rgba(255,85,0,${barOpacity})` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Popularity distribution */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Popularity Spread" meta="how mainstream is your taste?" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {popBuckets.map(({ label, range, count }) => {
+                            const pct = topTracks.length ? Math.round((count / topTracks.length) * 100) : 0;
+                            return (
+                              <div key={label} className="flex flex-col gap-2">
+                                <div className="h-16 bg-white/[0.04] rounded-xl overflow-hidden flex items-end">
+                                  <div
+                                    className="w-full bg-[#FF5500]/70 rounded-xl transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ height: `${Math.max(pct, 4)}%` }}
+                                  />
+                                </div>
+                                <p className="text-xs font-semibold text-white/70">{label}</p>
+                                <p className="text-[9px] text-white/25">{range} · {count} track{count !== 1 ? 's' : ''}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Top tracks by popularity */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Track Popularity" meta="Spotify score 0–100" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
+                        {topTracks.slice(0, 10).map((track) => {
+                          const pop = track.popularity ?? 0;
+                          const img = track.album.images[2]?.url ?? track.album.images[0]?.url;
+                          return (
+                            <div
+                              key={track.id}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl group cursor-pointer hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                              onClick={() => playTrack(track.uri)}
+                            >
+                              <div className="p-[1px] bg-white/[0.04] border border-white/[0.05] rounded-lg shrink-0">
+                                <div className="w-7 h-7 rounded-[calc(0.5rem-1px)] overflow-hidden bg-[#111]">
+                                  {img && <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-white/70 truncate leading-tight group-hover:text-white transition-colors duration-300">{track.name}</p>
+                                <div className="mt-1.5 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-[#FF5500] transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ width: `${pop}%`, opacity: 0.4 + pop / 200 }}
+                                  />
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-mono text-white/30 tabular-nums shrink-0 w-6 text-right">{pop}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Empty state */}
+                {topTracks.length === 0 && topArtists.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p className="text-4xl mb-5 text-white/10 select-none">📊</p>
+                    <h3 className="text-base font-semibold text-white/30 mb-2">No data yet</h3>
+                    <p className="text-sm text-white/18">Play some music on Spotify and check back.</p>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
         </div>
       </main>

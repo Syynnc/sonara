@@ -23,20 +23,21 @@ function HeadphonesIcon() {
 }
 
 export function Navbar() {
-  const pathname   = usePathname();
+  const pathname        = usePathname();
   const [open, setOpen] = useState(false);
+  const hidden          = APP_ROUTES.some((r) => pathname.startsWith(r));
 
-  if (APP_ROUTES.some((r) => pathname.startsWith(r))) return null;
+  // Lock body scroll when overlay open — must be called unconditionally
+  useEffect(() => {
+    if (hidden) return;
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open, hidden]);
+
+  if (hidden) return null;
 
   const isLanding = pathname === '/';
   const links     = isLanding ? LANDING_LINKS : [{ label: 'Dashboard', href: '/dashboard' }];
-
-  // Lock body scroll when overlay open
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [open]);
 
   return (
     <>
