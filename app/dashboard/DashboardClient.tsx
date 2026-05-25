@@ -15,7 +15,7 @@ import type {
 } from '@/lib/spotify/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'search' | 'playlists';
+type Tab = 'overview' | 'search' | 'playlists' | 'stats';
 
 interface DashboardClientProps {
   firstName: string;
@@ -65,14 +65,7 @@ function IcoChart() {
     </svg>
   );
 }
-function IcoSettings() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
+
 function IcoLogOut() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
@@ -137,7 +130,7 @@ const NAV: NavItem[] = [
   { id: 'overview',  icon: IcoGrid,  label: 'Overview'  },
   { id: 'search',    icon: IcoSearch, label: 'Search'   },
   { id: 'playlists', icon: IcoList,  label: 'Playlists' },
-  { id: 'stats',     icon: IcoChart, label: 'Stats', disabled: true },
+  { id: 'stats',     icon: IcoChart, label: 'Stats' },
 ];
 
 // ── Sidebar nav button (double-bezel when active, labelled) ──────────────────
@@ -730,19 +723,6 @@ export function DashboardClient({
           </span>
         </a>
 
-        {/* Settings */}
-        <button
-          type="button"
-          title="Settings"
-          className="flex flex-col items-center gap-1.5 py-1 w-full group"
-        >
-          <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white/20 group-hover:text-white/50 group-hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <IcoSettings />
-          </div>
-          <span className="text-[9px] font-medium tracking-wide text-white/15 group-hover:text-white/35 transition-colors duration-300">
-            Settings
-          </span>
-        </button>
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
@@ -764,7 +744,7 @@ export function DashboardClient({
 
           {/* Tab pills */}
           <div className="flex items-center gap-1 ml-auto">
-            {NAV.filter((n) => !n.disabled).map((n) => (
+            {NAV.map((n) => (
               <button
                 key={n.id}
                 type="button"
@@ -1459,6 +1439,219 @@ export function DashboardClient({
               </div>
             </div>
           )}
+
+          {/* ── Stats ─────────────────────────────────────────────────────── */}
+          {tab === 'stats' && (() => {
+            // ── Derived stats ──────────────────────────────────────────────
+            const totalMs      = topTracks.reduce((s, t) => s + t.duration_ms, 0);
+            const totalMins    = Math.round(totalMs / 60000);
+            const avgPop       = topTracks.length
+              ? Math.round(topTracks.reduce((s, t) => s + (t.popularity ?? 0), 0) / topTracks.length)
+              : 0;
+            const uniqueGenres = new Set(topArtists.flatMap((a) => a.genres ?? [])).size;
+            const topGenre     = genreData[0]?.name ?? '—';
+
+            const featureLabels: { key: keyof AudioFeatureSet; label: string; color: string; desc: string }[] = [
+              { key: 'energy',           label: 'Energy',           color: '#FF5500', desc: 'How intense and active your music is' },
+              { key: 'danceability',     label: 'Danceability',     color: '#FF8C00', desc: 'How suitable your tracks are for dancing' },
+              { key: 'valence',          label: 'Positivity',       color: '#FFB800', desc: 'Musical positiveness — happy vs. sad' },
+              { key: 'acousticness',     label: 'Acousticness',     color: '#22C55E', desc: 'Confidence the track is acoustic' },
+              { key: 'instrumentalness', label: 'Instrumentalness', color: '#3B82F6', desc: 'Likelihood of no vocals' },
+              { key: 'speechiness',      label: 'Speechiness',      color: '#A855F7', desc: 'Presence of spoken words' },
+            ];
+
+            return (
+              <div className="px-6 py-10 max-w-5xl space-y-10">
+
+                {/* Header */}
+                <div>
+                  <div className="p-[1.5px] bg-white/[0.03] border border-white/[0.05] rounded-full w-fit mb-3">
+                    <div className="px-3 py-1 bg-[#0A0A0A] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                      <span className="text-[9px] font-bold tracking-[0.28em] text-[#FF5500]/50 uppercase">Your Stats</span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white tracking-tight">Listening Report</h2>
+                  <p className="text-sm text-white/30 mt-1.5">Based on your top tracks &amp; artists.</p>
+                </div>
+
+                {/* KPI row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Top Tracks',    value: String(topTracks.length),  sub: 'in your profile'       },
+                    { label: 'Total Runtime', value: `${totalMins}m`,           sub: 'of top-track audio'    },
+                    { label: 'Avg Popularity', value: `${avgPop}`,              sub: 'out of 100 on Spotify' },
+                    { label: 'Genre Range',   value: String(uniqueGenres),      sub: 'unique genres explored' },
+                  ].map(({ label, value, sub }) => (
+                    <div key={label} className="p-[1.5px] bg-white/[0.03] border border-white/[0.06] rounded-[1.5rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(1.5rem-1.5px)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
+                        <p className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase mb-2">{label}</p>
+                        <p className="text-3xl font-bold text-white tabular-nums leading-none mb-1">{value}</p>
+                        <p className="text-[10px] text-white/25">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Audio features */}
+                {dnaFeatures && (
+                  <section>
+                    <SectionHeader label="Audio Profile" meta="avg of top 20 tracks" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-5">
+                        {featureLabels.map(({ key, label, color, desc }) => {
+                          const pct = Math.round((dnaFeatures[key] ?? 0) * 100);
+                          return (
+                            <div key={key}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <span className="text-xs font-semibold text-white/70">{label}</span>
+                                  <span className="ml-2 text-[10px] text-white/25">{desc}</span>
+                                </div>
+                                <span className="text-xs font-mono tabular-nums" style={{ color }}>{pct}%</span>
+                              </div>
+                              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                  style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}55` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Genre breakdown */}
+                {genreData.length > 0 && (
+                  <section>
+                    <SectionHeader label="Top Genres" meta={`${uniqueGenres} total`} />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-3">
+                        {genreData.map(({ name, pct }, i) => {
+                          const opacity = 1 - i * 0.13;
+                          return (
+                            <div key={name} className="flex items-center gap-4">
+                              <span className="text-[9px] font-mono text-white/20 w-3 tabular-nums shrink-0">{i + 1}</span>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-xs font-medium text-white/70 capitalize">{name}</span>
+                                  <span className="text-[10px] font-mono text-white/30 tabular-nums">{Math.round(pct * 100)}%</span>
+                                </div>
+                                <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ width: `${Math.round(pct * 100)}%`, background: `rgba(255,85,0,${opacity})` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Top track popularity breakdown */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Track Popularity" meta="Spotify score 0–100" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
+                        {topTracks.slice(0, 10).map((track) => {
+                          const pop  = track.popularity ?? 0;
+                          const img  = track.album.images[2]?.url ?? track.album.images[0]?.url;
+                          return (
+                            <div
+                              key={track.id}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl group cursor-pointer hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                              onClick={() => playTrack(track.uri)}
+                            >
+                              <div className="p-[1px] bg-white/[0.04] border border-white/[0.05] rounded-lg shrink-0">
+                                <div className="w-7 h-7 rounded-[calc(0.5rem-1px)] overflow-hidden bg-[#111]">
+                                  {img && <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-white/70 truncate leading-tight group-hover:text-white transition-colors duration-300">{track.name}</p>
+                                <div className="mt-1.5 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-[#FF5500] transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                                    style={{ width: `${pop}%`, opacity: 0.5 + pop / 200 }}
+                                  />
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-mono text-white/30 tabular-nums shrink-0 w-6 text-right">{pop}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Taste summary card */}
+                <section>
+                  <SectionHeader label="Taste Summary" />
+                  <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
+                    <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] px-7 py-7">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[
+                          {
+                            label: 'Defining Genre',
+                            value: topGenre,
+                            sub:   'Your most-represented genre across top artists',
+                            emoji: '🎵',
+                          },
+                          {
+                            label: 'Listening Mood',
+                            value: dnaFeatures
+                              ? dnaFeatures.valence > 0.6 ? 'Upbeat' : dnaFeatures.valence > 0.4 ? 'Balanced' : 'Melancholic'
+                              : '—',
+                            sub:   'Derived from average valence of your top tracks',
+                            emoji: dnaFeatures
+                              ? dnaFeatures.valence > 0.6 ? '😊' : dnaFeatures.valence > 0.4 ? '😐' : '😔'
+                              : '🎧',
+                          },
+                          {
+                            label: 'Listening Style',
+                            value: dnaFeatures
+                              ? dnaFeatures.energy > 0.65 ? 'High Energy' : dnaFeatures.acousticness > 0.5 ? 'Acoustic' : 'Chill'
+                              : '—',
+                            sub:   'Derived from energy & acousticness scores',
+                            emoji: dnaFeatures
+                              ? dnaFeatures.energy > 0.65 ? '🔥' : dnaFeatures.acousticness > 0.5 ? '🎸' : '😌'
+                              : '🎧',
+                          },
+                        ].map(({ label, value, sub, emoji }) => (
+                          <div key={label} className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">{emoji}</span>
+                              <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
+                            </div>
+                            <p className="text-xl font-bold text-white capitalize leading-tight">{value}</p>
+                            <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Empty state */}
+                {topTracks.length === 0 && topArtists.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p className="text-4xl mb-5 text-white/10 select-none">📊</p>
+                    <h3 className="text-base font-semibold text-white/30 mb-2">No data yet</h3>
+                    <p className="text-sm text-white/18">Play some music on Spotify and check back.</p>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
         </div>
       </main>
