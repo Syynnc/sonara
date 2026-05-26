@@ -1,5 +1,97 @@
 # 🎵 Sonar — Music Discovery + Playlist Builder
 
+Sonar is a personalized music discovery and playlist creation tool powered by the [Spotify Web API](https://developer.spotify.com/documentation/web-api). It allows users to discover new music, view their top artists or tracks, analyze their taste profile, and build/export playlists seamlessly.
+
+---
+
+## 🚀 Features
+
+- **Spotify Integration:** Connect your Spotify account securely.
+- **Advanced Discovery:** Search for tracks and artists with personalized recommendations based on mood and audio features (e.g., danceability, valence).
+- **Playlist Builder:** Create new playlists or modify existing ones and export them directly to your Spotify account.
+- **Taste DNA:** Analyze your music taste profile with dynamic visual cards.
+- **Modern Dashboard:** Built on an elegant, responsive UI.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org/) (App Router, React 19)
+- **Database & Auth:** [Supabase](https://supabase.com/) & [Drizzle ORM](https://orm.drizzle.team/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Integrations:** [Spotify Web API](https://developer.spotify.com/documentation/web-api)
+
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+
+1. **Node.js** (v18+ recommended)
+2. A **[Supabase](https://supabase.com/)** project
+3. A **[Spotify Developer Dashboard](https://developer.spotify.com/dashboard)** App
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/sonar.git
+   cd sonar
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or pnpm install / yarn install
+   ```
+
+3. **Configure Environment Variables**
+   Create a `.env.local` file in the root directory and add your application secrets:
+   ```env
+   # Supabase Configuration
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+   # Spotify App Configuration
+   SPOTIFY_CLIENT_ID=your_spotify_client_id
+   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+   SPOTIFY_REDIRECT_URI=http://localhost:3000/api/spotify/connect/callback
+   ```
+
+4. **Database Setup**
+   Apply the database migrations to your Supabase project using Drizzle:
+   ```bash
+   npx drizzle-kit push
+   ```
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser to start using Sonar.
+
+---
+
+## 📡 Internal API Routes
+
+Sonar wraps the Spotify API with its own internal Next.js routes (`/app/api/`) to handle authentication securely and format data for the frontend:
+
+| Route | Description |
+|---|---|
+| `GET /api/auth/callback` | Supabase OAuth callback handler. |
+| `POST /api/auth/signout` | Signs the user out of the application securely. |
+| `GET /api/spotify/connect` | Initiates the Spotify authorization flow. |
+| `GET /api/spotify/connect/callback`| Handles the Spotify OAuth callback and securely saves tokens. |
+| `GET /api/spotify/top` | Fetches the user's top artists or tracks. |
+| `GET /api/spotify/search` | Performs a search against the Spotify catalog. |
+| `GET /api/spotify/playlists/[id]` | Retrieves detailed information for a specific playlist. |
+| `POST /api/spotify/playlists/export` | Exports a custom-built playlist directly to Spotify. |
+| `GET /api/spotify/audio-features` | Retrieves audio features (energy, valence, etc.) for tracks. |
+
+---
+
+## 📖 Spotify API Reference
+
 > Powered by the [Spotify Web API](https://developer.spotify.com/documentation/web-api). All endpoints require a valid Bearer token via OAuth 2.0.
 
 ---

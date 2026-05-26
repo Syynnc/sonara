@@ -8,6 +8,12 @@ import type { AudioFeatureSet, GenreEntry } from '@/app/components/TasteDNACard'
 import { ShortcutsModal } from '@/app/components/ShortcutsModal';
 import { formatDuration } from '@/app/components/TrackCard';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import {
+  PopularityBarChart,
+  AudioFeaturesRadar,
+  GenreDoughnut,
+  TrackPopularityChart,
+} from '@/app/components/StatsCharts';
 import type {
   SpotifyTrack, SpotifyArtist, SpotifySearchResult,
   LocalPlaylist, LocalPlaylistTrack,
@@ -1429,9 +1435,10 @@ export function DashboardClient({
 
           {/* ── Stats ─────────────────────────────────────────────────────── */}
           {tab === 'stats' && (() => {
-            // ── All derived from topTracks + topArtists — no audio features API needed ──
+            // ── Derived from topTracks + topArtists ──────────────────────────
             const totalMs      = topTracks.reduce((s, t) => s + t.duration_ms, 0);
             const totalMins    = Math.round(totalMs / 60000);
+            const totalHours   = (totalMs / 3_600_000).toFixed(1);
             const avgPop       = topTracks.length
               ? Math.round(topTracks.reduce((s, t) => s + (t.popularity ?? 0), 0) / topTracks.length)
               : 0;
@@ -1444,23 +1451,56 @@ export function DashboardClient({
                 ? `${(topArtistFollowers / 1_000).toFixed(0)}K`
                 : String(topArtistFollowers);
 
-            // Genre-based mood/style inference
-            const allGenres = topArtists.flatMap((a) => a.genres ?? []).join(' ').toLowerCase();
-            const isEnergetic = /edm|electronic|metal|punk|hip.?hop|trap|drum|bass|techno|dance/.test(allGenres);
-            const isAcoustic  = /acoustic|folk|singer.?songwriter|country|bluegrass|classical/.test(allGenres);
-            const isUpbeat    = /pop|funk|soul|r.?b|disco|reggae|latin/.test(allGenres);
-            const mood  = isUpbeat ? 'Upbeat' : isEnergetic ? 'Intense' : isAcoustic ? 'Mellow' : 'Balanced';
-            const moodEmoji = isUpbeat ? '😊' : isEnergetic ? '🔥' : isAcoustic ? '😌' : '😐';
-            const style = isEnergetic ? 'High Energy' : isAcoustic ? 'Acoustic' : isUpbeat ? 'Danceable' : 'Chill';
-            const styleEmoji = isEnergetic ? '⚡' : isAcoustic ? '🎸' : isUpbeat ? '💃' : '🌙';
+            // ── Audio-feature–based mood/style (uses real dnaFeatures when available) ──
+            let mood = '—', moodEmoji = '😐', style = '—', styleEmoji = '🎵';
+            if (dnaFeatures) {
+              const { energy, valence, danceability, acousticness } = dnaFeatures;
+              // Mood from valence (0–1 = sad→happy)
+              if      (valence >= 0.70)                        { mood = 'Very Positive'; moodEmoji = '😄'; }
+              else if (valence >= 0.50)                        { mood = 'Upbeat';        moodEmoji = '😊'; }
+              else if (valence >= 0.35)                        { mood = 'Neutral';       moodEmoji = '😐'; }
+              else                                             { mood = 'Melancholic';   moodEmoji = '😔'; }
+              // Style from energy + danceability + acousticness
+              if      (energy >= 0.75)                         { style = 'High Energy';  styleEmoji = '🔥'; }
+              else if (danceability >= 0.70)                   { style = 'Danceable';    styleEmoji = '💃'; }
+              else if (acousticness >= 0.55)                   { style = 'Acoustic';     styleEmoji = '🎸'; }
+              else if (energy < 0.40)                          { style = 'Chill';        styleEmoji = '🌙'; }
+              else                                             { style = 'Balanced';     styleEmoji = '⚡'; }
+            } else {
+              // Fallback to genre inference when audio features not yet loaded
+              const allGenres = topArtists.flatMap((a) => a.genres ?? []).join(' ').toLowerCase();
+              const isEnergetic = /edm|electronic|metal|punk|hip.?hop|trap|drum|bass|techno|dance/.test(allGenres);
+              const isAcoustic  = /acoustic|folk|singer.?songwriter|country|bluegrass|classical/.test(allGenres);
+              const isUpbeat    = /pop|funk|soul|r.?b|disco|reggae|latin/.test(allGenres);
+              mood       = isUpbeat ? 'Upbeat'     : isEnergetic ? 'Intense'    : isAcoustic ? 'Mellow'    : 'Balanced';
+              moodEmoji  = isUpbeat ? '😊'         : isEnergetic ? '🔥'         : isAcoustic ? '😌'         : '😐';
+              style      = isEnergetic ? 'High Energy' : isAcoustic ? 'Acoustic' : isUpbeat ? 'Danceable' : 'Chill';
+              styleEmoji = isEnergetic ? '⚡'       : isAcoustic ? '🎸'         : isUpbeat  ? '💃'         : '🌙';
+            }
 
-            // Popularity distribution buckets
+            // ── Popularity distribution buckets ───────────────────────────────
             const popBuckets = [
               { label: 'Underground',  range: '0–39',   count: topTracks.filter((t) => (t.popularity ?? 0) < 40).length  },
               { label: 'Rising',       range: '40–59',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 40 && p < 60; }).length },
               { label: 'Mainstream',   range: '60–79',  count: topTracks.filter((t) => { const p = t.popularity ?? 0; return p >= 60 && p < 80; }).length },
               { label: 'Charting',     range: '80–100', count: topTracks.filter((t) => (t.popularity ?? 0) >= 80).length  },
             ];
+            const maxPopBucket = Math.max(...popBuckets.map((b) => b.count), 1);
+
+            // ── Tracks sorted by popularity (for chart) ───────────────────────
+            const tracksByPop = [...topTracks]
+              .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+              .slice(0, 10);
+
+            // ── Audio feature bars config ─────────────────────────────────────
+            const audioFeatureBars = dnaFeatures ? [
+              { label: 'Energy',        value: dnaFeatures.energy,           desc: 'Intensity & activity level'      },
+              { label: 'Danceability',  value: dnaFeatures.danceability,     desc: 'How suitable for dancing'        },
+              { label: 'Mood (Valence)',value: dnaFeatures.valence,          desc: 'Musical positiveness'            },
+              { label: 'Acousticness',  value: dnaFeatures.acousticness,     desc: 'Acoustic vs. electric sound'     },
+              { label: 'Instrumentalness', value: dnaFeatures.instrumentalness, desc: 'Vocals vs. pure instruments'  },
+              { label: 'Speechiness',   value: dnaFeatures.speechiness,      desc: 'Spoken word content'             },
+            ] : [];
 
             return (
               <div className="px-6 py-10 max-w-5xl space-y-10">
@@ -1473,16 +1513,16 @@ export function DashboardClient({
                     </div>
                   </div>
                   <h2 className="text-2xl font-bold text-white tracking-tight">Listening Report</h2>
-                  <p className="text-sm text-white/30 mt-1.5">Based on your top tracks &amp; artists.</p>
+                  <p className="text-sm text-white/30 mt-1.5">Based on your top tracks &amp; artists from the last 4 weeks.</p>
                 </div>
 
                 {/* KPI row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: 'Top Tracks',     value: String(topTracks.length),   sub: 'tracked this month'         },
-                    { label: 'Total Runtime',  value: `${totalMins}m`,            sub: 'of top-track audio'         },
-                    { label: 'Avg Popularity', value: `${avgPop}`,                sub: 'out of 100 on Spotify'      },
-                    { label: 'Genre Range',    value: String(uniqueGenres),       sub: 'unique genres explored'     },
+                    { label: 'Top Tracks',     value: String(topTracks.length),                      sub: 'in your short-term chart'           },
+                    { label: 'Combined Runtime', value: totalMins >= 60 ? `${totalHours}h` : `${totalMins}m`, sub: 'if played back-to-back'        },
+                    { label: 'Avg Popularity', value: `${avgPop}`,                                   sub: 'out of 100 on Spotify'              },
+                    { label: 'Genre Range',    value: String(uniqueGenres),                          sub: 'unique genres in your top artists'  },
                   ].map(({ label, value, sub }) => (
                     <div key={label} className="p-[1.5px] bg-white/[0.03] border border-white/[0.06] rounded-[1.5rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(1.5rem-1.5px)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
@@ -1494,27 +1534,109 @@ export function DashboardClient({
                   ))}
                 </div>
 
-                {/* Taste summary */}
+                {/* Taste summary — uses real audio features when available */}
                 {topTracks.length > 0 && (
                   <section>
-                    <SectionHeader label="Taste Profile" />
+                    <SectionHeader label="Taste Profile" meta={dnaFeatures ? 'from Spotify audio analysis' : dnaLoading ? 'loading…' : 'genre-based estimate'} />
                     <div className="p-2 bg-white/[0.025] border border-white/[0.06] rounded-[2rem]">
                       <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.07)] px-7 py-7">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                          {[
-                            { label: 'Top Genre',      value: topGenre,    sub: 'Most-represented genre',          emoji: '🎵' },
-                            { label: 'Mood',           value: mood,        sub: 'Inferred from your genre mix',    emoji: moodEmoji },
-                            { label: 'Listening Style', value: style,      sub: 'Based on genre characteristics', emoji: styleEmoji },
-                            { label: 'Top Artist',     value: topArtists[0]?.name ?? '—',
-                              sub: topArtists[0] ? `${fmtFollowers} followers` : 'No data yet', emoji: '🎤' },
-                          ].map(({ label, value, sub, emoji }) => (
-                            <div key={label} className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-lg">{emoji}</span>
-                                <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
+                        {dnaLoading ? (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {[0,1,2,3].map((i) => (
+                              <div key={i} className="space-y-2">
+                                <div className="h-3 bg-white/[0.04] rounded-full w-16 animate-pulse" />
+                                <div className="h-5 bg-white/[0.04] rounded-full w-24 animate-pulse" />
+                                <div className="h-2.5 bg-white/[0.04] rounded-full w-20 animate-pulse" />
                               </div>
-                              <p className="text-lg font-bold text-white capitalize leading-tight truncate">{value}</p>
-                              <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            {[
+                              { label: 'Top Genre',      value: topGenre,    sub: 'Most-represented genre',                                                      emoji: '🎵' },
+                              { label: 'Mood',           value: mood,        sub: dnaFeatures ? `Valence score: ${Math.round(dnaFeatures.valence * 100)}/100`   : 'Genre-based estimate', emoji: moodEmoji },
+                              { label: 'Listening Style', value: style,     sub: dnaFeatures ? `Energy score: ${Math.round(dnaFeatures.energy * 100)}/100`      : 'Genre-based estimate', emoji: styleEmoji },
+                              { label: 'Top Artist',     value: topArtists[0]?.name ?? '—',
+                                sub: topArtists[0] ? `${fmtFollowers} followers` : 'No data yet', emoji: '🎤' },
+                            ].map(({ label, value, sub, emoji }) => (
+                              <div key={label} className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-lg">{emoji}</span>
+                                  <span className="text-[9px] font-bold tracking-[0.24em] text-white/30 uppercase">{label}</span>
+                                </div>
+                                <p className="text-lg font-bold text-white capitalize leading-tight truncate">{value}</p>
+                                <p className="text-[10px] text-white/25 leading-relaxed">{sub}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Charts row: Audio Features Radar + Genre Doughnut ──────── */}
+                {(dnaFeatures || dnaLoading) && genreData.length > 0 && (
+                  <section>
+                    <SectionHeader label="Sound Profile" meta="audio features · genre mix" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* Radar */}
+                      <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                        <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
+                          <p className="text-[9px] font-bold tracking-[0.24em] text-white/25 uppercase mb-4">Audio Features</p>
+                          {dnaLoading ? (
+                            <div className="h-[220px] bg-white/[0.03] rounded-2xl animate-pulse" />
+                          ) : dnaFeatures ? (
+                            <div className="h-[220px]">
+                              <AudioFeaturesRadar features={dnaFeatures} />
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Doughnut + legend */}
+                      <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                        <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-5 py-5">
+                          <p className="text-[9px] font-bold tracking-[0.24em] text-white/25 uppercase mb-4">Genre Mix</p>
+                          <div className="flex items-center gap-5">
+                            <div className="h-[180px] w-[180px] shrink-0">
+                              <GenreDoughnut genres={genreData} />
+                            </div>
+                            <div className="flex flex-col gap-2 flex-1 min-w-0">
+                              {genreData.slice(0, 6).map((g, i) => {
+                                const PALETTE = ['#FF5500','#FF7A3D','#CC4400','#FF9966','#E84400','#B84000'];
+                                return (
+                                  <div key={g.name} className="flex items-center gap-2 min-w-0">
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: PALETTE[i] }} />
+                                    <span className="text-[10px] text-white/45 truncate capitalize flex-1">{g.name}</span>
+                                    <span className="text-[10px] font-mono text-white/25 shrink-0">{Math.round(g.pct * 100)}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Popularity Spread — Chart.js bar chart ─────────────────── */}
+                {topTracks.length > 0 && (
+                  <section>
+                    <SectionHeader label="Popularity Spread" meta="how mainstream is your taste?" />
+                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6">
+                        <div className="h-[180px]">
+                          <PopularityBarChart buckets={popBuckets} />
+                        </div>
+                        {/* Sub-labels */}
+                        <div className="grid grid-cols-4 gap-2 mt-3">
+                          {popBuckets.map(({ label, range, count }) => (
+                            <div key={label} className="text-center">
+                              <p className="text-[9px] text-white/25">{range}</p>
+                              <p className="text-[9px] font-mono text-white/20">{count} track{count !== 1 ? 's' : ''}</p>
                             </div>
                           ))}
                         </div>
@@ -1523,98 +1645,22 @@ export function DashboardClient({
                   </section>
                 )}
 
-                {/* Genre breakdown */}
-                {genreData.length > 0 && (
+                {/* ── Track Popularity — Chart.js horizontal bar chart ──────── */}
+                {tracksByPop.length > 0 && (
                   <section>
-                    <SectionHeader label="Top Genres" meta={`${uniqueGenres} total`} />
+                    <SectionHeader label="Track Popularity" meta="Spotify score 0–100 · sorted highest first" />
                     <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
-                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6 space-y-3">
-                        {genreData.map(({ name, pct }, i) => {
-                          const barOpacity = 1 - i * 0.13;
-                          return (
-                            <div key={name} className="flex items-center gap-4">
-                              <span className="text-[9px] font-mono text-white/20 w-3 tabular-nums shrink-0">{i + 1}</span>
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-xs font-medium text-white/70 capitalize">{name}</span>
-                                  <span className="text-[10px] font-mono text-white/30 tabular-nums">{Math.round(pct * 100)}%</span>
-                                </div>
-                                <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                    style={{ width: `${Math.round(pct * 100)}%`, background: `rgba(255,85,0,${barOpacity})` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Popularity distribution */}
-                {topTracks.length > 0 && (
-                  <section>
-                    <SectionHeader label="Popularity Spread" meta="how mainstream is your taste?" />
-                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
-                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {popBuckets.map(({ label, range, count }) => {
-                            const pct = topTracks.length ? Math.round((count / topTracks.length) * 100) : 0;
-                            return (
-                              <div key={label} className="flex flex-col gap-2">
-                                <div className="h-16 bg-white/[0.04] rounded-xl overflow-hidden flex items-end">
-                                  <div
-                                    className="w-full bg-[#FF5500]/70 rounded-xl transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                    style={{ height: `${Math.max(pct, 4)}%` }}
-                                  />
-                                </div>
-                                <p className="text-xs font-semibold text-white/70">{label}</p>
-                                <p className="text-[9px] text-white/25">{range} · {count} track{count !== 1 ? 's' : ''}</p>
-                              </div>
-                            );
-                          })}
+                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] px-6 py-6">
+                        <div className="stats-track-chart" ref={(el) => { if (el) el.style.setProperty('height', `${tracksByPop.length * 36 + 24}px`); }}>
+                          <TrackPopularityChart
+                            tracks={tracksByPop.map((t) => ({
+                              id: t.id,
+                              name: t.name,
+                              artist: t.artists.map((a) => a.name).join(', '),
+                              popularity: t.popularity ?? 0,
+                            }))}
+                          />
                         </div>
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Top tracks by popularity */}
-                {topTracks.length > 0 && (
-                  <section>
-                    <SectionHeader label="Track Popularity" meta="Spotify score 0–100" />
-                    <div className="p-2 bg-white/[0.02] border border-white/[0.05] rounded-[2rem]">
-                      <div className="bg-[#0B0B0B] rounded-[calc(2rem-0.5rem)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] p-2">
-                        {topTracks.slice(0, 10).map((track) => {
-                          const pop = track.popularity ?? 0;
-                          const img = track.album.images[2]?.url ?? track.album.images[0]?.url;
-                          return (
-                            <div
-                              key={track.id}
-                              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl group cursor-pointer hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                              onClick={() => playTrack(track.uri)}
-                            >
-                              <div className="p-[1px] bg-white/[0.04] border border-white/[0.05] rounded-lg shrink-0">
-                                <div className="w-7 h-7 rounded-[calc(0.5rem-1px)] overflow-hidden bg-[#111]">
-                                  {img && <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />}
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-white/70 truncate leading-tight group-hover:text-white transition-colors duration-300">{track.name}</p>
-                                <div className="mt-1.5 h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-[#FF5500] transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                                    style={{ width: `${pop}%`, opacity: 0.4 + pop / 200 }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="text-[10px] font-mono text-white/30 tabular-nums shrink-0 w-6 text-right">{pop}</span>
-                            </div>
-                          );
-                        })}
                       </div>
                     </div>
                   </section>
