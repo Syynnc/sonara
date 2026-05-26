@@ -4,7 +4,15 @@ Sonar is a personalized music discovery and playlist creation tool powered by th
 
 ---
 
-## 🚀 Features
+## � Beta Access / How to Access
+
+Because this application uses the Spotify API in **Development Mode**, login access is restricted by Spotify to approved users only. 
+
+If you would like to test the site, you must be added to the whitelist. Please reach out to the developer with the email address linked to your Spotify account so you can be granted access to log in.
+
+---
+
+## �🚀 Features
 
 - **Spotify Integration:** Connect your Spotify account securely.
 - **Advanced Discovery:** Search for tracks and artists with personalized recommendations based on mood and audio features (e.g., danceability, valence).

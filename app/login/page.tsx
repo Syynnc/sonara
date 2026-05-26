@@ -45,6 +45,12 @@ function LoginContent() {
           </div>
         )}
 
+        <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl shadow-sm">
+          <p className="text-xs text-orange-200/90 text-center leading-relaxed">
+            <span className="font-semibold text-orange-400">Beta Access:</span> This app is currently in development mode. To log in, please contact the developer to have your Spotify account email added to the access list.
+          </p>
+        </div>
+
         {/* Sign-in button — goes directly to our Spotify OAuth route */}
         <a
           href="/api/spotify/connect"
